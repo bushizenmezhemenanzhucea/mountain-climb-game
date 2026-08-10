@@ -186,6 +186,7 @@ public class GameScreen implements Screen {
             @Override public boolean touchDragged(int screenX, int screenY, int pointer) { return false; }
             @Override public boolean mouseMoved(int screenX, int screenY) { return false; }
             @Override public boolean scrolled(float amountX, float amountY) { return false; }
+            @Override public boolean touchCancelled(int screenX, int screenY, int pointer, int button) { return false; }
         };
 
         inputMultiplexer = new InputMultiplexer();
