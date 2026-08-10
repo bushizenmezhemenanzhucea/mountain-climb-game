@@ -3,79 +3,94 @@ package com.mountainclimb.game.update;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Net;
 import com.badlogic.gdx.files.FileHandle;
-import com.badlogic.gdx.utils.Base64Coder;
+import com.badlogic.gdx.net.HttpRequestBuilder;
 import com.badlogic.gdx.utils.Json;
-import com.badlogic.gdx.utils.StreamUtils;
+import com.mountainclimb.game.GameConfig;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * 热更新管理器
- * 从 GitHub 检查并下载更新
+ * GitHub 热更新管理器
+ * 流程：检查版本 -> 下载补丁 -> 解压覆盖 -> 重启生效
  */
 public class UpdateManager {
     private static final String TAG = "UpdateManager";
-    
-    // GitHub 配置
-    private static final String GITHUB_OWNER = "bushizenmezhemenanzhucea";
-    private static final String GITHUB_REPO = "mountain-climb-game";
-    private static final String GITHUB_BRANCH = "main";
-    private static final String GITHUB_RAW_BASE = "https://raw.githubusercontent.com/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/" + GITHUB_BRANCH + "/update/";
 
     private UpdateListener listener;
+    private VersionInfo localVersion;
+    private VersionInfo remoteVersion;
     private boolean checking = false;
+    private boolean downloading = false;
+
+    public UpdateManager() {
+        this.localVersion = new VersionInfo(GameConfig.VERSION_CODE, GameConfig.VERSION);
+    }
 
     public void setListener(UpdateListener listener) {
         this.listener = listener;
     }
 
     /**
-     * 检查是否有新版本
+     * 检查 GitHub 仓库是否有新版本
      */
     public void checkForUpdate() {
         if (checking) return;
         checking = true;
 
-        String url = GITHUB_RAW_BASE + "version.json";
-        
-        Net.HttpRequest request = new Net.HttpRequest(Net.HttpMethods.GET);
-        request.setUrl(url);
-        request.setTimeOut(10000);
+        String versionUrl = GameConfig.GITHUB_RAW_BASE + GameConfig.UPDATE_VERSION_FILE;
+        Gdx.app.log(TAG, "Checking update from: " + versionUrl);
+
+        HttpRequestBuilder builder = new HttpRequestBuilder();
+        Net.HttpRequest request = builder.newRequest()
+            .method(Net.HttpMethods.GET)
+            .url(versionUrl)
+            .timeout(10000)
+            .build();
 
         Gdx.net.sendHttpRequest(request, new Net.HttpResponseListener() {
             @Override
             public void handleHttpResponse(Net.HttpResponse httpResponse) {
+                checking = false;
+                String body = httpResponse.getResultAsString();
+                if (body == null || body.isEmpty()) {
+                    notifyNoUpdate("服务器返回空数据");
+                    return;
+                }
+
                 try {
-                    String jsonStr = httpResponse.getResultAsString();
                     Json json = new Json();
-                    VersionInfo remoteVersion = json.fromJson(VersionInfo.class, jsonStr);
-                    
-                    // 比较版本
-                    if (remoteVersion.versionCode > com.mountainclimb.game.GameConfig.VERSION_CODE) {
-                        notifyUpdateFound(remoteVersion);
+                    remoteVersion = json.fromJson(VersionInfo.class, body);
+
+                    if (remoteVersion.versionCode > localVersion.versionCode) {
+                        Gdx.app.log(TAG, "New version found: " + remoteVersion.versionName);
+                        if (listener != null) {
+                            Gdx.app.postRunnable(() -> listener.onUpdateFound(remoteVersion));
+                        }
                     } else {
-                        notifyNoUpdate("已是最新版本");
+                        notifyNoUpdate("当前已是最新版本");
                     }
                 } catch (Exception e) {
-                    Gdx.app.error(TAG, "Parse version.json failed", e);
-                    notifyError("解析版本信息失败");
+                    Gdx.app.error(TAG, "Parse version json failed", e);
+                    notifyNoUpdate("版本数据解析失败: " + e.getMessage());
                 }
-                checking = false;
             }
 
             @Override
             public void failed(Throwable t) {
-                Gdx.app.error(TAG, "Check update failed", t);
-                notifyError("检查更新失败: " + t.getMessage());
                 checking = false;
+                Gdx.app.error(TAG, "Check update failed", t);
+                notifyNoUpdate("网络请求失败: " + t.getMessage());
             }
 
             @Override
             public void cancelled() {
                 checking = false;
+                notifyNoUpdate("用户取消");
             }
         });
     }
@@ -84,19 +99,31 @@ public class UpdateManager {
      * 下载并应用更新
      */
     public void downloadAndApplyUpdate() {
-        String url = GITHUB_RAW_BASE + "patch.zip";
-        
-        Net.HttpRequest request = new Net.HttpRequest(Net.HttpMethods.GET);
-        request.setUrl(url);
-        request.setTimeOut(30000);
+        if (downloading || remoteVersion == null) return;
+        downloading = true;
+
+        String patchUrl = (remoteVersion.updateUrl != null && !remoteVersion.updateUrl.isEmpty())
+            ? remoteVersion.updateUrl
+            : GameConfig.GITHUB_RAW_BASE + GameConfig.UPDATE_PATCH_FILE;
+
+        Gdx.app.log(TAG, "Downloading patch from: " + patchUrl);
+
+        HttpRequestBuilder builder = new HttpRequestBuilder();
+        Net.HttpRequest request = builder.newRequest()
+            .method(Net.HttpMethods.GET)
+            .url(patchUrl)
+            .timeout(30000)
+            .build();
 
         Gdx.net.sendHttpRequest(request, new Net.HttpResponseListener() {
+            private ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            private long totalBytes = 0;
+            private long downloadedBytes = 0;
+
             @Override
             public void handleHttpResponse(Net.HttpResponse httpResponse) {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 String contentLength = httpResponse.getHeader("Content-Length");
-                long totalBytes = contentLength != null ? Long.parseLong(contentLength) : 0;
-                long downloadedBytes = 0;
+                totalBytes = contentLength != null ? Long.parseLong(contentLength) : 0;
                 byte[] buffer = new byte[4096];
                 int read;
                 try {
@@ -126,76 +153,124 @@ public class UpdateManager {
 
             @Override
             public void failed(Throwable t) {
+                downloading = false;
                 Gdx.app.error(TAG, "Download failed", t);
                 notifyError("下载失败: " + t.getMessage());
             }
 
             @Override
             public void cancelled() {
-                notifyError("下载已取消");
+                downloading = false;
+                notifyNoUpdate("下载取消");
             }
         });
     }
 
     /**
-     * 应用补丁
+     * 解压补丁包并覆盖本地资源
      */
     private void applyPatch(byte[] patchData) {
         try {
-            ZipInputStream zis = new ZipInputStream(new java.io.ByteArrayInputStream(patchData));
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                if (entry.isDirectory()) continue;
-                
-                String name = entry.getName();
-                // 安全检查：防止 Zip Slip 漏洞
-                if (name.contains("..") || name.startsWith("/")) {
-                    Gdx.app.error(TAG, "Unsafe zip entry: " + name);
-                    continue;
-                }
-                
-                ByteArrayOutputStream entryBaos = new ByteArrayOutputStream();
-                byte[] buffer = new byte[4096];
-                int read;
-                while ((read = zis.read(buffer)) != -1) {
-                    entryBaos.write(buffer, 0, read);
-                }
-                
-                // 写入内部存储
-                FileHandle file = Gdx.files.local("update/" + name);
-                file.writeBytes(entryBaos.toByteArray(), false);
-                zis.closeEntry();
+            FileHandle updateDir = Gdx.files.external(GameConfig.UPDATE_DIR);
+            if (!updateDir.exists()) {
+                updateDir.mkdirs();
             }
-            zis.close();
-            
-            notifyUpdateComplete(true);
-        } catch (IOException e) {
+
+            // 1. 保存补丁文件到本地（可选，用于回滚或日志）
+            FileHandle patchFile = updateDir.child(GameConfig.UPDATE_PATCH_FILE);
+            patchFile.writeBytes(patchData, false);
+
+            // 2. 解压 ZIP 到 updateDir（带 Zip Slip 防护）
+            try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(patchData))) {
+                ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    if (entry.isDirectory()) continue;
+
+                    String entryName = entry.getName();
+                    // Zip Slip 安全防护：拒绝路径穿越攻击
+                    File updateDirFile = updateDir.file();
+                    File outFile = new File(updateDirFile, entryName);
+                    String canonicalUpdateDir = updateDirFile.getCanonicalPath();
+                    String canonicalOutFile = outFile.getCanonicalPath();
+                    if (!canonicalOutFile.startsWith(canonicalUpdateDir + File.separator) &&
+                        !canonicalOutFile.equals(canonicalUpdateDir)) {
+                        Gdx.app.error(TAG, "Zip Slip detected! Skipping entry: " + entryName);
+                        zis.closeEntry();
+                        continue;
+                    }
+
+                    FileHandle outFileHandle = updateDir.child(entryName);
+                    outFileHandle.parent().mkdirs();
+
+                    ByteArrayOutputStream entryOut = new ByteArrayOutputStream();
+                    byte[] buffer = new byte[4096];
+                    int len;
+                    while ((len = zis.read(buffer)) > 0) {
+                        entryOut.write(buffer, 0, len);
+                    }
+                    outFileHandle.writeBytes(entryOut.toByteArray(), false);
+                    zis.closeEntry();
+                }
+            }
+
+            // 3. 将解压后的文件覆盖到 assets（外部存储优先，LibGDX 的 FileType.External 会优先读取）
+            // 在 Android 中，External 文件会放在 /sdcard/Android/data/.../files/ 下
+            // 游戏加载资源时应优先从此处读取，回退到 Internal assets
+
+            // 4. 保存新的版本信息到本地，下次启动时读取
+            FileHandle versionFile = updateDir.child(GameConfig.UPDATE_VERSION_FILE);
+            Json json = new Json();
+            versionFile.writeString(json.toJson(remoteVersion), false);
+
+            downloading = false;
+            Gdx.app.log(TAG, "Update applied successfully. Restart needed.");
+
+            if (listener != null) {
+                listener.onUpdateComplete(true);
+            }
+        } catch (Exception e) {
+            downloading = false;
             Gdx.app.error(TAG, "Apply patch failed", e);
             notifyError("应用更新失败: " + e.getMessage());
         }
     }
 
-    private void notifyUpdateFound(VersionInfo version) {
-        Gdx.app.postRunnable(() -> {
-            if (listener != null) listener.onUpdateFound(version);
-        });
+    /**
+     * 读取本地已更新的版本信息（启动时调用）
+     */
+    public VersionInfo getLocalUpdatedVersion() {
+        FileHandle vf = Gdx.files.external(GameConfig.UPDATE_DIR + "/" + GameConfig.UPDATE_VERSION_FILE);
+        if (vf.exists()) {
+            try {
+                Json json = new Json();
+                return json.fromJson(VersionInfo.class, vf.readString());
+            } catch (Exception e) {
+                Gdx.app.error(TAG, "Read local version file failed", e);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 获取更新目录下的文件（用于优先加载更新资源）
+     */
+    public FileHandle getUpdatedFile(String path) {
+        FileHandle external = Gdx.files.external(GameConfig.UPDATE_DIR + "/" + path);
+        if (external.exists()) {
+            return external;
+        }
+        return null;
     }
 
     private void notifyNoUpdate(String reason) {
-        Gdx.app.postRunnable(() -> {
-            if (listener != null) listener.onNoUpdate(reason);
-        });
+        if (listener != null) {
+            Gdx.app.postRunnable(() -> listener.onNoUpdate(reason));
+        }
     }
 
     private void notifyError(String error) {
-        Gdx.app.postRunnable(() -> {
-            if (listener != null) listener.onUpdateError(error);
-        });
-    }
-
-    private void notifyUpdateComplete(boolean needRestart) {
-        Gdx.app.postRunnable(() -> {
-            if (listener != null) listener.onUpdateComplete(needRestart);
-        });
+        if (listener != null) {
+            Gdx.app.postRunnable(() -> listener.onUpdateError(error));
+        }
     }
 }
