@@ -101,7 +101,7 @@ public class TerrainGenerator {
     }
 
     /**
-     * 使用 ModelBuilder 构建地形网格
+     * 使用 ModelBuilder 构建地形网格（使用索引方式兼容 LibGDX 1.12.1）
      */
     private void buildTerrain() {
         ModelBuilder builder = new ModelBuilder();
@@ -109,7 +109,7 @@ public class TerrainGenerator {
 
         Material groundMat = new Material(ColorAttribute.createDiffuse(new Color(0.25f, 0.45f, 0.15f))); // 绿色草地
         MeshPartBuilder mpb = builder.part("ground", GL20.GL_TRIANGLES,
-            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.ColorPacked,
+            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal,
             groundMat);
 
         float half = GameConfig.WORLD_SIZE / 2f;
@@ -137,9 +137,15 @@ public class TerrainGenerator {
                 Vector3 n1 = calculateNormal(v00, v10, v01);
                 Vector3 n2 = calculateNormal(v10, v11, v01);
 
+                // 添加顶点并获取索引（兼容 LibGDX 1.12.1）
+                short i00 = mpb.vertex(v00, n1, null, null);
+                short i10 = mpb.vertex(v10, n1, null, null);
+                short i01 = mpb.vertex(v01, n1, null, null);
+                short i11 = mpb.vertex(v11, n2, null, null);
+
                 // 两个三角形组成一个四边形
-                mpb.triangle(v00, n1, v10, n1, v01, n1);
-                mpb.triangle(v10, n2, v11, n2, v01, n2);
+                mpb.triangle(i00, i10, i01);
+                mpb.triangle(i10, i11, i01);
             }
         }
 
@@ -180,6 +186,7 @@ public class TerrainGenerator {
 
     /**
      * 构建正方体空气墙（4面透明墙 + 底部）
+     * 使用索引方式兼容 LibGDX 1.12.1
      */
     private void buildWalls() {
         float half = GameConfig.WORLD_SIZE / 2f;
@@ -201,26 +208,30 @@ public class TerrainGenerator {
 
         // 4面墙
         // 前面 (z = +half)
-        buildWallQuad(mpb, new Vector3(-half, 0, half), new Vector3(half, 0, half),
+        buildWallQuadIndexed(mpb, new Vector3(-half, 0, half), new Vector3(half, 0, half),
             new Vector3(-half, height, half), new Vector3(half, height, half));
         // 后面 (z = -half)
-        buildWallQuad(mpb, new Vector3(half, 0, -half), new Vector3(-half, 0, -half),
+        buildWallQuadIndexed(mpb, new Vector3(half, 0, -half), new Vector3(-half, 0, -half),
             new Vector3(half, height, -half), new Vector3(-half, height, -half));
         // 左面 (x = -half)
-        buildWallQuad(mpb, new Vector3(-half, 0, -half), new Vector3(-half, 0, half),
+        buildWallQuadIndexed(mpb, new Vector3(-half, 0, -half), new Vector3(-half, 0, half),
             new Vector3(-half, height, -half), new Vector3(-half, height, half));
         // 右面 (x = +half)
-        buildWallQuad(mpb, new Vector3(half, 0, half), new Vector3(half, 0, -half),
+        buildWallQuadIndexed(mpb, new Vector3(half, 0, half), new Vector3(half, 0, -half),
             new Vector3(half, height, half), new Vector3(half, height, -half));
 
         wallModel = builder.end();
         wallInstances = new ModelInstance[] { new ModelInstance(wallModel) };
     }
 
-    private void buildWallQuad(MeshPartBuilder mpb, Vector3 bl, Vector3 br, Vector3 tl, Vector3 tr) {
+    private void buildWallQuadIndexed(MeshPartBuilder mpb, Vector3 bl, Vector3 br, Vector3 tl, Vector3 tr) {
         Vector3 normal = calculateNormal(bl, br, tl);
-        mpb.triangle(bl, normal, br, normal, tl, normal);
-        mpb.triangle(br, normal, tr, normal, tl, normal);
+        short iBl = mpb.vertex(bl, normal, null, null);
+        short iBr = mpb.vertex(br, normal, null, null);
+        short iTl = mpb.vertex(tl, normal, null, null);
+        short iTr = mpb.vertex(tr, normal, null, null);
+        mpb.triangle(iBl, iBr, iTl);
+        mpb.triangle(iBr, iTr, iTl);
     }
 
     // ===== 碰撞检测 =====

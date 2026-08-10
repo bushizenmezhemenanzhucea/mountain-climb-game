@@ -47,82 +47,23 @@ public class Player {
     }
 
     /**
-     * 程序化构建玩家模型（胶囊体）
+     * 程序化构建玩家模型（球体代替胶囊体，兼容性更好）
      */
     private void buildModel() {
         ModelBuilder builder = new ModelBuilder();
 
         Material bodyMat = new Material(ColorAttribute.createDiffuse(new Color(0.2f, 0.4f, 0.8f))); // 蓝色身体
-        Material headMat = new Material(ColorAttribute.createDiffuse(new Color(0.9f, 0.7f, 0.5f))); // 肤色头部
 
-        builder.begin();
+        // 使用内置方法创建球体，避免手动构建网格的API兼容性问题
+        playerModel = builder.createSphere(
+            radius * 2f, height, radius * 2f,
+            16, 16,
+            bodyMat,
+            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal
+        );
 
-        // 身体（圆柱体）
-        builder.part("body", com.badlogic.gdx.graphics.GL20.GL_TRIANGLES,
-            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal,
-            bodyMat);
-
-        // 这里简化处理，使用一个组合模型
-        // 实际使用一个胶囊形状：圆柱 + 两个半球
-
-        // 简化：使用一个球体代替（后续可扩展为更复杂模型）
-        com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder mpb = builder.part("player", com.badlogic.gdx.graphics.GL20.GL_TRIANGLES,
-            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal,
-            bodyMat);
-
-        // 创建胶囊体近似（球体 + 圆柱体）
-        createCapsule(mpb, radius, height);
-
-        playerModel = builder.end();
         playerInstance = new ModelInstance(playerModel);
         updateTransform();
-    }
-
-    /**
-     * 程序化创建胶囊体网格
-     */
-    private void createCapsule(com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder mpb, float r, float h) {
-        int segments = 16;
-        int rings = 8;
-        float halfH = h / 2f - r;
-
-        // 创建半球（上部和下部）和中间圆柱
-        // 简化为一个拉伸的球体
-        for (int i = 0; i < rings; i++) {
-            float theta1 = (float)(i * Math.PI / rings);
-            float theta2 = (float)((i + 1) * Math.PI / rings);
-
-            for (int j = 0; j < segments; j++) {
-                float phi1 = (float)(j * 2f * Math.PI / segments);
-                float phi2 = (float)((j + 1) * 2f * Math.PI / segments);
-
-                Vector3 v1 = spherePoint(theta1, phi1, r, halfH);
-                Vector3 v2 = spherePoint(theta2, phi1, r, halfH);
-                Vector3 v3 = spherePoint(theta1, phi2, r, halfH);
-                Vector3 v4 = spherePoint(theta2, phi2, r, halfH);
-
-                Vector3 n1 = v1.cpy().nor();
-                Vector3 n2 = v2.cpy().nor();
-                Vector3 n3 = v3.cpy().nor();
-                Vector3 n4 = v4.cpy().nor();
-
-                mpb.triangle(v1, n1, v2, n2, v3, n3);
-                mpb.triangle(v2, n2, v4, n4, v3, n3);
-            }
-        }
-    }
-
-    private Vector3 spherePoint(float theta, float phi, float r, float halfH) {
-        float y = r * MathUtils.cos(theta);
-        float sinTheta = MathUtils.sin(theta);
-        float x = r * sinTheta * MathUtils.cos(phi);
-        float z = r * sinTheta * MathUtils.sin(phi);
-
-        // 拉伸成胶囊形状
-        if (y > 0) y += halfH;
-        else y -= halfH;
-
-        return new Vector3(x, y, z);
     }
 
     /**
