@@ -224,9 +224,9 @@ public class GameScreen implements Screen {
             }
         };
         pauseDialog.getContentTable().pad(20f);
-        pauseDialog.button("继续游戏", "continue", skin).pad(10f);
-        pauseDialog.button("保存进度", "save", skin).pad(10f);
-        pauseDialog.button("返回主菜单", "menu", skin).pad(10f);
+        pauseDialog.button("继续游戏", "continue").pad(10f);
+        pauseDialog.button("保存进度", "save").pad(10f);
+        pauseDialog.button("返回主菜单", "menu").pad(10f);
         pauseDialog.show(uiStage);
     }
 
