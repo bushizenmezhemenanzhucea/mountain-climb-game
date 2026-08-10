@@ -17,7 +17,6 @@ public class AndroidLauncher extends AndroidApplication {
         config.useCompass = false;
         config.useGyroscope = false;
         config.useImmersiveMode = true; // 沉浸模式，隐藏状态栏
-        config.hideStatusBar = true;
 
         // 横屏
         config.useWakelock = true;
