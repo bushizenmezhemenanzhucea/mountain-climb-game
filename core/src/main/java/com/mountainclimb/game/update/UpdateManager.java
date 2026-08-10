@@ -9,6 +9,7 @@ import com.mountainclimb.game.GameConfig;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -178,13 +179,27 @@ public class UpdateManager {
             FileHandle patchFile = updateDir.child(GameConfig.UPDATE_PATCH_FILE);
             patchFile.writeBytes(patchData, false);
 
-            // 2. 解压 ZIP 到 updateDir
+            // 2. 解压 ZIP 到 updateDir（带 Zip Slip 防护）
             try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(patchData))) {
                 ZipEntry entry;
                 while ((entry = zis.getNextEntry()) != null) {
                     if (entry.isDirectory()) continue;
-                    FileHandle outFile = updateDir.child(entry.getName());
-                    outFile.parent().mkdirs();
+
+                    String entryName = entry.getName();
+                    // Zip Slip 安全防护：拒绝路径穿越攻击
+                    File updateDirFile = updateDir.file();
+                    File outFile = new File(updateDirFile, entryName);
+                    String canonicalUpdateDir = updateDirFile.getCanonicalPath();
+                    String canonicalOutFile = outFile.getCanonicalPath();
+                    if (!canonicalOutFile.startsWith(canonicalUpdateDir + File.separator) &&
+                        !canonicalOutFile.equals(canonicalUpdateDir)) {
+                        Gdx.app.error(TAG, "Zip Slip detected! Skipping entry: " + entryName);
+                        zis.closeEntry();
+                        continue;
+                    }
+
+                    FileHandle outFileHandle = updateDir.child(entryName);
+                    outFileHandle.parent().mkdirs();
 
                     ByteArrayOutputStream entryOut = new ByteArrayOutputStream();
                     byte[] buffer = new byte[4096];
@@ -192,7 +207,7 @@ public class UpdateManager {
                     while ((len = zis.read(buffer)) > 0) {
                         entryOut.write(buffer, 0, len);
                     }
-                    outFile.writeBytes(entryOut.toByteArray(), false);
+                    outFileHandle.writeBytes(entryOut.toByteArray(), false);
                     zis.closeEntry();
                 }
             }

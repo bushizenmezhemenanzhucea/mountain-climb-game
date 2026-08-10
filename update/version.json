@@ -1,0 +1,8 @@
+{
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "updateUrl": "https://raw.githubusercontent.com/bushizenmezhemonanzhucea/mountain-climb-game/main/update/patch.zip",
+  "patchList": "",
+  "updateLog": "V1.0.0 初始版本\n- 3D爬山游戏\n- 后山地图\n- 热更新系统",
+  "forceUpdate": false
+}

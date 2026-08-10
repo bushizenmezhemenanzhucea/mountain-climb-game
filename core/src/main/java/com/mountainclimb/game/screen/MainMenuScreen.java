@@ -42,6 +42,7 @@ public class MainMenuScreen implements Screen, UpdateListener {
 
     private UpdateManager updateManager;
     private Dialog updateDialog;
+    private Label progressLabel;
 
     private Texture bgTexture;
 
@@ -201,8 +202,44 @@ public class MainMenuScreen implements Screen, UpdateListener {
 
     @Override
     public void onUpdateFound(VersionInfo newVersion) {
-        showInfoDialog("发现新版本: " + newVersion.versionName + "\n是否立即更新?");
-        // 可以扩展为带"更新"按钮的对话框
+        // 关闭之前的对话框
+        if (updateDialog != null) {
+            updateDialog.hide();
+        }
+        updateDialog = new Dialog("发现新版本", game.getSkin());
+        String msg = "版本: " + newVersion.versionName + "\n\n更新内容:\n" +
+            (newVersion.updateLog != null && !newVersion.updateLog.isEmpty() ? newVersion.updateLog : "暂无更新日志");
+        if (newVersion.forceUpdate) {
+            msg += "\n\n(此为强制更新，必须更新后才能继续游戏)";
+            updateDialog.text(msg);
+            updateDialog.button("立即更新", true).padBottom(10f);
+            updateDialog.setModal(true);
+            updateDialog.setObject(true, true);
+        } else {
+            updateDialog.text(msg);
+            updateDialog.button("立即更新", true).padBottom(10f);
+            updateDialog.button("以后再说", false).padBottom(10f);
+        }
+        updateDialog.show(stage);
+        updateDialog.setResultListener(result -> {
+            if (result instanceof Boolean && (Boolean) result) {
+                // 用户点击"立即更新"，开始下载
+                updateDialog.hide();
+                showDownloadDialog();
+                updateManager.downloadAndApplyUpdate();
+            }
+        });
+    }
+
+    private void showDownloadDialog() {
+        if (updateDialog != null) {
+            updateDialog.hide();
+        }
+        updateDialog = new Dialog("正在下载", game.getSkin());
+        progressLabel = new Label("准备下载...", game.getSkin());
+        updateDialog.getContentTable().add(progressLabel).pad(20f);
+        updateDialog.setModal(true);
+        updateDialog.show(stage);
     }
 
     @Override
@@ -212,7 +249,9 @@ public class MainMenuScreen implements Screen, UpdateListener {
 
     @Override
     public void onDownloadProgress(int percent) {
-        // 显示下载进度
+        if (progressLabel != null) {
+            progressLabel.setText("下载进度: " + percent + "%");
+        }
     }
 
     @Override
@@ -222,11 +261,21 @@ public class MainMenuScreen implements Screen, UpdateListener {
 
     @Override
     public void onUpdateComplete(boolean needRestart) {
-        showInfoDialog("更新完成! 请重启应用。");
+        if (updateDialog != null) {
+            updateDialog.hide();
+        }
+        updateDialog = new Dialog("更新完成", game.getSkin());
+        updateDialog.text("更新已成功应用!\n请重启应用以加载新内容。");
+        updateDialog.button("确定", true).padBottom(10f);
+        updateDialog.setModal(true);
+        updateDialog.show(stage);
     }
 
     @Override
     public void onUpdateError(String error) {
+        if (updateDialog != null) {
+            updateDialog.hide();
+        }
         showInfoDialog("更新出错: " + error);
     }
 

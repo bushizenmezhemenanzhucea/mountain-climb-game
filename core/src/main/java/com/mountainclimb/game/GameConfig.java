@@ -10,7 +10,7 @@ public class GameConfig {
     public static final String GDX_VERSION = "1.12.1";
 
     // GitHub 热更新配置（请替换为你的仓库）
-    public static final String GITHUB_OWNER = "YOUR_GITHUB_USERNAME";
+    public static final String GITHUB_OWNER = "bushizenmezhemonanzhucea";
     public static final String GITHUB_REPO = "mountain-climb-game";
     public static final String GITHUB_BRANCH = "main";
     // 用于获取最新 release/tag 的 API 地址
