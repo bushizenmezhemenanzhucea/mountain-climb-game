@@ -52,7 +52,7 @@ public class Player {
     private void buildModel() {
         ModelBuilder builder = new ModelBuilder();
 
-        Material bodyMat = new Material(ColorAttribute.createDiffuse(new Color(0.2f, 0.4f, 0.8f))); // 蓝色身体
+        Material bodyMat = new Material(ColorAttribute.createDiffuse(new Color(0.2f, 0.4f, 0.8f, 1f))); // 蓝色身体
 
         // 使用内置方法创建球体，避免手动构建网格的API兼容性问题
         playerModel = builder.createSphere(

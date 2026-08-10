@@ -107,7 +107,7 @@ public class TerrainGenerator {
         ModelBuilder builder = new ModelBuilder();
         builder.begin();
 
-        Material groundMat = new Material(ColorAttribute.createDiffuse(new Color(0.25f, 0.45f, 0.15f))); // 绿色草地
+        Material groundMat = new Material(ColorAttribute.createDiffuse(new Color(0.25f, 0.45f, 0.15f, 1f))); // 绿色草地
         MeshPartBuilder mpb = builder.part("ground", GL20.GL_TRIANGLES,
             VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal,
             groundMat);
