@@ -52,17 +52,17 @@ public class AudioManager {
 
     public void loadSounds() {
         try {
-            btnSound = Gdx.audio.newSound(getAudioFile("sounds/button_click.mp3"));
+            btnSound = Gdx.audio.newSound(getAudioFile("sounds/button_click.wav"));
         } catch (Exception e) {
             Gdx.app.log("AudioManager", "Button sound not found");
         }
         try {
-            climbSound = Gdx.audio.newSound(getAudioFile("sounds/climb.mp3"));
+            climbSound = Gdx.audio.newSound(getAudioFile("sounds/climb.wav"));
         } catch (Exception e) {
             Gdx.app.log("AudioManager", "Climb sound not found");
         }
         try {
-            summitSound = Gdx.audio.newSound(getAudioFile("sounds/summit.mp3"));
+            summitSound = Gdx.audio.newSound(getAudioFile("sounds/summit.wav"));
         } catch (Exception e) {
             Gdx.app.log("AudioManager", "Summit sound not found");
         }
@@ -74,7 +74,7 @@ public class AudioManager {
                 bgm.stop();
                 bgm.dispose();
             }
-            bgm = Gdx.audio.newMusic(getAudioFile("music/bgm.mp3"));
+            bgm = Gdx.audio.newMusic(getAudioFile("music/bgm.wav"));
             bgm.setLooping(true);
             bgm.setVolume(musicVolume);
         } catch (Exception e) {

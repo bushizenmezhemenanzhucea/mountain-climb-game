@@ -1,0 +1,81 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install Android SDK Build Tools
+      run: |
+        sdkmanager "build-tools;33.0.0"
+        sdkmanager "platforms;android-33"
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Clean previous builds
+      run: ./gradlew clean --no-daemon
+
+    - name: Create placeholder assets
+      run: |
+        mkdir -p android/assets/textures
+        mkdir -p android/assets/sounds
+        mkdir -p android/assets/music
+        mkdir -p android/assets/fonts
+        # 创建空白占位文件（如果没有真实资源，游戏会静默跳过）
+        touch android/assets/textures/menu_bg.png
+        touch android/assets/textures/map_houshan.png
+        touch android/assets/sounds/button_click.mp3
+        touch android/assets/sounds/climb.mp3
+        touch android/assets/sounds/summit.mp3
+        touch android/assets/music/bgm.mp3
+
+    - name: Build Debug APK
+      run: ./gradlew android:assembleDebug --no-daemon
+      env:
+        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: debug-apk
+        path: android/build/outputs/apk/debug/android-debug.apk
+
+    - name: Build Release APK
+      run: ./gradlew android:assembleRelease --no-daemon
+      env:
+        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+
+    - name: Upload Release APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-apk
+        path: android/build/outputs/apk/release/android-release-unsigned.apk
+
+    - name: Display APK Info
+      run: |
+        echo "=== Debug APK ==="
+        ls -lh android/build/outputs/apk/debug/
+        echo "=== Release APK ==="
+        ls -lh android/build/outputs/apk/release/

@@ -1,13 +1,12 @@
 from PIL import Image, ImageDraw
 import os
+import wave
 
-# 创建游戏资源目录
 os.makedirs('android/assets/textures', exist_ok=True)
 os.makedirs('android/assets/sounds', exist_ok=True)
 os.makedirs('android/assets/music', exist_ok=True)
-os.makedirs('android/assets/fonts', exist_ok=True)
 
-# 生成菜单背景
+# 菜单背景
 img = Image.new('RGB', (1920, 1080), (34, 139, 34))
 pixels = img.load()
 for y in range(1080):
@@ -18,7 +17,7 @@ for y in range(1080):
 img.save('android/assets/textures/menu_bg.png')
 print('Created menu_bg.png')
 
-# 生成地图缩略图
+# 地图缩略图
 img = Image.new('RGB', (512, 512), (70, 130, 180))
 pixels = img.load()
 for y in range(512):
@@ -33,32 +32,36 @@ for y in range(512):
 img.save('android/assets/textures/map_houshan.png')
 print('Created map_houshan.png')
 
-# 生成 Android 图标
+# 图标
 sizes = {'mdpi':48, 'hdpi':72, 'xhdpi':96, 'xxhdpi':144, 'xxxhdpi':192}
 for name, size in sizes.items():
     os.makedirs(f'android/src/main/res/mipmap-{name}', exist_ok=True)
-    
     img = Image.new('RGBA', (size, size), (76, 175, 80, 255))
     draw = ImageDraw.Draw(img)
-    
     margin = size // 8
     peak_x = size // 2
     peak_y = margin + size // 10
     base_left = margin
     base_right = size - margin
     base_y = size - margin
-    
     draw.polygon([(peak_x, peak_y), (base_left, base_y), (base_right, base_y)], fill=(255, 255, 255, 255))
-    
     snow_size = max(size // 15, 2)
     draw.ellipse([peak_x - snow_size, peak_y - snow_size, peak_x + snow_size, peak_y + snow_size], fill=(255, 255, 255, 200))
-    
     img.save(f'android/src/main/res/mipmap-{name}/ic_launcher.png')
     print(f'Created icon {name}: {size}x{size}')
 
-# 创建空音频文件
-open('android/assets/sounds/button_click.mp3', 'w').close()
-open('android/assets/sounds/climb.mp3', 'w').close()
-open('android/assets/sounds/summit.mp3', 'w').close()
-open('android/assets/music/bgm.mp3', 'w').close()
+# 生成有效 WAV 文件
+def create_wav(path, duration=0.5, sample_rate=22050):
+    nframes = int(duration * sample_rate)
+    with wave.open(path, 'w') as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        wav.writeframes(b'\x00' * (nframes * 2))
+
+create_wav('android/assets/sounds/button_click.wav', 0.1)
+create_wav('android/assets/sounds/climb.wav', 1.0)
+create_wav('android/assets/sounds/summit.wav', 0.5)
+create_wav('android/assets/music/bgm.wav', 3.0)
+print('Created audio files')
 print('Done!')
