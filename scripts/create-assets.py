@@ -1,15 +1,36 @@
 from PIL import Image, ImageDraw
 import os
+import shutil
 import wave
-import urllib.request
 
 ASSETS = 'android/src/main/assets'
-os.makedirs(f'{ASSETS}/textures', exist_ok=True)
-os.makedirs(f'{ASSETS}/sounds', exist_ok=True)
-os.makedirs(f'{ASSETS}/music', exist_ok=True)
-os.makedirs(f'{ASSETS}/fonts', exist_ok=True)
+for d in ['textures', 'sounds', 'music', 'fonts']:
+    os.makedirs(f'{ASSETS}/{d}', exist_ok=True)
 
-# 菜单背景
+# ===== 复制系统字体 =====
+font_paths = [
+    '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf',
+    '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+    '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
+]
+
+font_copied = False
+for path in font_paths:
+    if os.path.exists(path):
+        try:
+            shutil.copy2(path, f'{ASSETS}/fonts/NotoSansSC.otf')
+            size = os.path.getsize(f'{ASSETS}/fonts/NotoSansSC.otf')
+            print(f'Font copied: {path} ({size} bytes)')
+            font_copied = True
+            break
+        except Exception as e:
+            print(f'Failed: {path}: {e}')
+
+if not font_copied:
+    print('WARNING: No font found!')
+
+# ===== 生成图片 =====
 img = Image.new('RGB', (1920, 1080), (34, 139, 34))
 pixels = img.load()
 for y in range(1080):
@@ -20,7 +41,6 @@ for y in range(1080):
 img.save(f'{ASSETS}/textures/menu_bg.png')
 print('Created menu_bg.png')
 
-# 地图缩略图
 img = Image.new('RGB', (512, 512), (70, 130, 180))
 pixels = img.load()
 for y in range(512):
@@ -35,7 +55,6 @@ for y in range(512):
 img.save(f'{ASSETS}/textures/map_houshan.png')
 print('Created map_houshan.png')
 
-# 图标
 sizes = {'mdpi':48, 'hdpi':72, 'xhdpi':96, 'xxhdpi':144, 'xxxhdpi':192}
 for name, size in sizes.items():
     os.makedirs(f'android/src/main/res/mipmap-{name}', exist_ok=True)
@@ -53,30 +72,26 @@ for name, size in sizes.items():
     img.save(f'android/src/main/res/mipmap-{name}/ic_launcher.png')
     print(f'Created icon {name}')
 
-# 音频
-def create_wav(path, duration=0.5, sample_rate=22050):
+# ===== 生成测试音 =====
+def create_tone(path, duration=0.5, freq=440, sample_rate=22050):
+    import struct, math
     nframes = int(duration * sample_rate)
     with wave.open(path, 'w') as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(sample_rate)
-        wav.writeframes(b'\x00' * (nframes * 2))
+        data = b''.join(struct.pack('<h', int(2000 * math.sin(2 * math.pi * freq * t / sample_rate))) for t in range(nframes))
+        wav.writeframes(data)
 
-create_wav(f'{ASSETS}/sounds/button_click.wav', 0.1)
-create_wav(f'{ASSETS}/sounds/climb.wav', 1.0)
-create_wav(f'{ASSETS}/sounds/summit.wav', 0.5)
-create_wav(f'{ASSETS}/music/bgm.wav', 3.0)
-print('Created audio files')
+create_tone(f'{ASSETS}/sounds/button_click.wav', 0.1, 880)
+create_tone(f'{ASSETS}/sounds/climb.wav', 1.0, 220)
+create_tone(f'{ASSETS}/sounds/summit.wav', 0.5, 660)
+create_tone(f'{ASSETS}/music/bgm.wav', 3.0, 330)
+print('Created audio')
 
-# 下载中文字体（约8MB）
-print('Downloading Chinese font...')
-try:
-    urllib.request.urlretrieve(
-        'https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf',
-        f'{ASSETS}/fonts/NotoSansSC.otf'
-    )
-    print('Downloaded font')
-except Exception as e:
-    print(f'Font download failed: {e}')
-
-print('Done!')
+# 列出所有文件
+print('\n=== Generated ===')
+for root, dirs, files in os.walk(ASSETS):
+    for f in files:
+        path = os.path.join(root, f)
+        print(f'  {path}: {os.path.getsize(path)} bytes')

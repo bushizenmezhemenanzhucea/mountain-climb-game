@@ -23,10 +23,22 @@ public class MountainClimbGame extends Game {
 
     @Override
     public void create() {
-        AudioManager.getInstance().loadSounds();
-        AudioManager.getInstance().loadBGM();
+        Gdx.app.log("Game", "create() started");
+        try {
+            AudioManager.getInstance().loadSounds();
+            Gdx.app.log("Game", "Sounds loaded");
+        } catch (Exception e) {
+            Gdx.app.error("Game", "Sound failed: " + e.getMessage());
+        }
+        try {
+            AudioManager.getInstance().loadBGM();
+            Gdx.app.log("Game", "BGM loaded");
+        } catch (Exception e) {
+            Gdx.app.error("Game", "BGM failed: " + e.getMessage());
+        }
         createSkin();
         setScreen(new MainMenuScreen(this));
+        Gdx.app.log("Game", "create() done");
     }
 
     private void createSkin() {
@@ -57,11 +69,6 @@ public class MountainClimbGame extends Game {
         pixmapDown.fill();
         buttonStyle.down = new TextureRegionDrawable(new Texture(pixmapDown));
 
-        Pixmap pixmapOver = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        pixmapOver.setColor(0.25f, 0.3f, 0.35f, 0.85f);
-        pixmapOver.fill();
-        buttonStyle.over = new TextureRegionDrawable(new Texture(pixmapOver));
-
         skin.add("default", buttonStyle);
 
         Slider.SliderStyle sliderStyle = new Slider.SliderStyle();
@@ -81,25 +88,32 @@ public class MountainClimbGame extends Game {
     }
 
     private BitmapFont loadChineseFont() {
-        try {
-            com.badlogic.gdx.files.FileHandle fontFile = Gdx.files.internal("fonts/NotoSansSC.otf");
-            if (fontFile.exists()) {
-                FreeTypeFontGenerator generator = new FreeTypeFontGenerator(fontFile);
-                FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
-                param.size = 32;
-                param.color = Color.WHITE;
-                param.characters = "开始游戏继续设置更新日志检查退出后山选择地图进入音效音量背景音乐视角灵敏度保存返回主菜单V初始版本D爬山热系统关闭成功登顶保存进度返回主菜单这是一款位于北郊的后山海拔不高但地形复杂几座凸起的山峰连绵起伏山顶有平坦的平台挑战者需要从山脚出发沿着斜坡攀登最终登顶主峰俯瞰整个山谷注意边界有空气墙保护请勿尝试越界1234567890.%";
-                BitmapFont f = generator.generateFont(param);
-                generator.dispose();
-                Gdx.app.log("Font", "Loaded Chinese font from assets");
-                return f;
+        String[] paths = {"fonts/NotoSansSC.otf", "fonts/NotoSansCJKsc-Regular.otf"};
+        for (String path : paths) {
+            try {
+                com.badlogic.gdx.files.FileHandle f = Gdx.files.internal(path);
+                if (f.exists()) {
+                    Gdx.app.log("Font", "Loading: " + path + " (" + f.length() + " bytes)");
+                    FreeTypeFontGenerator gen = new FreeTypeFontGenerator(f);
+                    FreeTypeFontGenerator.FreeTypeFontParameter p = new FreeTypeFontGenerator.FreeTypeFontParameter();
+                    p.size = 32;
+                    p.color = Color.WHITE;
+                    p.characters = FreeTypeFontGenerator.DEFAULT_CHARS;
+                    BitmapFont font = gen.generateFont(p);
+                    gen.dispose();
+                    Gdx.app.log("Font", "SUCCESS: " + path);
+                    return font;
+                } else {
+                    Gdx.app.log("Font", "Not found: " + path);
+                }
+            } catch (Exception e) {
+                Gdx.app.error("Font", "Failed " + path + ": " + e.getMessage());
             }
-        } catch (Exception e) {
-            Gdx.app.log("Font", "Failed: " + e.getMessage());
         }
-        BitmapFont defaultFont = new BitmapFont();
-        defaultFont.getData().setScale(2f);
-        return defaultFont;
+        Gdx.app.log("Font", "Using default (no Chinese)");
+        BitmapFont df = new BitmapFont();
+        df.getData().setScale(2f);
+        return df;
     }
 
     public Skin getSkin() { return skin; }

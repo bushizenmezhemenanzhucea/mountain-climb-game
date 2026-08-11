@@ -22,16 +22,19 @@ jobs:
       run: |
         sdkmanager "build-tools;33.0.0"
         sdkmanager "platforms;android-33"
-    - name: Install Pillow and create assets
+    - name: Install system fonts
       run: |
+        sudo apt-get update
+        sudo apt-get install -y fonts-noto-cjk fonts-wqy-zenhei
         pip install Pillow
-        python3 scripts/create-assets.py
-    - name: Verify assets exist
+    - name: Create assets
+      run: python3 scripts/create-assets.py
+    - name: Verify assets
       run: |
-        echo "=== Generated assets ==="
+        echo "=== Assets ==="
         find android/src/main/assets -type f 2>/dev/null | sort
-        echo "=== Font file size ==="
-        ls -lh android/src/main/assets/fonts/ 2>/dev/null || echo "No font dir"
+        echo "=== Font ==="
+        ls -lh android/src/main/assets/fonts/ 2>/dev/null || echo "NO FONT!"
     - name: Download native libraries
       run: |
         GDX_VER="1.12.1"
@@ -44,13 +47,9 @@ jobs:
             so_file=$(find /tmp/${lib}-${arch}/ -name "*.so" | head -1)
             if [ -n "$so_file" ]; then
               cp "$so_file" $JNI_DIR/${arch}/
-              echo "OK: ${lib} ${arch}"
-            else
-              echo "MISSING: ${lib} ${arch}"
             fi
           done
         done
-        echo "=== Native libs ==="
         find $JNI_DIR -type f | sort
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
