@@ -17,38 +17,24 @@ import com.mountainclimb.game.GameConfig;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 地形生成器：程序化生成后山地图
- * 包含：地面、多座山峰（平顶）、空气墙边界
- */
 public class TerrainGenerator {
-
-    /** 山峰信息 */
     public static class PeakInfo {
-        public Vector3 center;    // 山中心位置
-        public float baseRadius;  // 基底半径
-        public float height;      // 高度
-        public float flatTopRadius; // 平顶半径
-        public BoundingBox bounds; // 碰撞边界盒
-        public boolean summitReached = false; // 是否已登顶
+        public Vector3 center;
+        public float baseRadius;
+        public float height;
+        public float flatTopRadius;
+        public BoundingBox bounds;
+        public boolean summitReached = false;
 
         public PeakInfo(float x, float z, float radius, float h, float flatR) {
             this.center = new Vector3(x, 0, z);
             this.baseRadius = radius;
             this.height = h;
             this.flatTopRadius = flatR;
-            // 计算AABB碰撞盒
             this.bounds = new BoundingBox(
                 new Vector3(x - radius, 0, z - radius),
                 new Vector3(x + radius, h, z + radius)
             );
-        }
-
-        public boolean contains(Vector3 point, float radius) {
-            float dx = point.x - center.x;
-            float dz = point.z - center.z;
-            float dist = (float)Math.sqrt(dx*dx + dz*dz);
-            return dist < baseRadius + radius;
         }
 
         public float getHeightAt(float x, float z) {
@@ -57,9 +43,8 @@ public class TerrainGenerator {
             float dist = (float)Math.sqrt(dx*dx + dz*dz);
             if (dist > baseRadius) return 0;
             if (dist < flatTopRadius) return height;
-            // 平滑斜坡
             float t = (dist - flatTopRadius) / (baseRadius - flatTopRadius);
-            return height * (1f - t * t); // 使用平方缓动，让山坡更自然
+            return height * (1f - t * t);
         }
 
         public boolean isOnSummit(Vector3 pos, float threshold) {
@@ -72,50 +57,49 @@ public class TerrainGenerator {
 
     private Model terrainModel;
     private ModelInstance terrainInstance;
+    private Model groundModel;
+    private ModelInstance groundInstance;
     private Model wallModel;
     private ModelInstance[] wallInstances;
     private List<PeakInfo> peaks = new ArrayList<>();
 
-    private static final int TERRAIN_SEGMENTS = 80; // 地形网格细分
-    private static final float GROUND_Y = 0f;
+    private static final int TERRAIN_SEGMENTS = 80;
 
     public TerrainGenerator() {
         generatePeaks();
+        buildGround();
         buildTerrain();
         buildWalls();
     }
 
-    /**
-     * 定义几座山峰的参数
-     */
     private void generatePeaks() {
         float half = GameConfig.WORLD_SIZE / 2f;
-        // 主峰（最大，中心偏右）
         peaks.add(new PeakInfo(half * 0.3f, half * 0.2f, 25f, 30f, 4f));
-        // 左侧山
         peaks.add(new PeakInfo(-half * 0.4f, half * 0.1f, 20f, 22f, 3f));
-        // 远处小山
         peaks.add(new PeakInfo(half * 0.1f, -half * 0.5f, 15f, 15f, 2.5f));
-        // 右侧丘陵
         peaks.add(new PeakInfo(half * 0.6f, -half * 0.2f, 18f, 18f, 3f));
     }
 
-    /**
-     * 使用 ModelBuilder 构建地形网格（使用索引方式兼容 LibGDX 1.12.1）
-     */
+    private void buildGround() {
+        ModelBuilder builder = new ModelBuilder();
+        Material groundMat = new Material(ColorAttribute.createDiffuse(new Color(0.15f, 0.35f, 0.1f, 1f)));
+        float size = GameConfig.WORLD_SIZE * 2f;
+        groundModel = builder.createBox(size, 0.2f, size, groundMat,
+            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
+        groundInstance = new ModelInstance(groundModel);
+        groundInstance.transform.translate(0, -0.1f, 0);
+    }
+
     private void buildTerrain() {
         ModelBuilder builder = new ModelBuilder();
         builder.begin();
-
-        Material groundMat = new Material(ColorAttribute.createDiffuse(new Color(0.25f, 0.45f, 0.15f, 1f))); // 绿色草地
+        Material groundMat = new Material(ColorAttribute.createDiffuse(new Color(0.25f, 0.45f, 0.15f, 1f)));
         MeshPartBuilder mpb = builder.part("ground", GL20.GL_TRIANGLES,
-            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal,
-            groundMat);
+            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal, groundMat);
 
         float half = GameConfig.WORLD_SIZE / 2f;
         float step = GameConfig.WORLD_SIZE / TERRAIN_SEGMENTS;
 
-        // 生成网格顶点
         for (int i = 0; i < TERRAIN_SEGMENTS; i++) {
             for (int j = 0; j < TERRAIN_SEGMENTS; j++) {
                 float x0 = -half + i * step;
@@ -133,17 +117,14 @@ public class TerrainGenerator {
                 Vector3 v01 = new Vector3(x0, h01, z1);
                 Vector3 v11 = new Vector3(x1, h11, z1);
 
-                // 计算法线
                 Vector3 n1 = calculateNormal(v00, v10, v01);
                 Vector3 n2 = calculateNormal(v10, v11, v01);
 
-                // 添加顶点并获取索引（兼容 LibGDX 1.12.1）
                 short i00 = mpb.vertex(v00, n1, null, null);
                 short i10 = mpb.vertex(v10, n1, null, null);
                 short i01 = mpb.vertex(v01, n1, null, null);
                 short i11 = mpb.vertex(v11, n2, null, null);
 
-                // 两个三角形组成一个四边形
                 mpb.triangle(i00, i10, i01);
                 mpb.triangle(i10, i11, i01);
             }
@@ -153,16 +134,12 @@ public class TerrainGenerator {
         terrainInstance = new ModelInstance(terrainModel);
     }
 
-    /**
-     * 获取某位置的地面高度（含山峰叠加）
-     */
     public float getTerrainHeight(float x, float z) {
-        float y = GROUND_Y;
+        float y = 0f;
         for (PeakInfo peak : peaks) {
             float ph = peak.getHeightAt(x, z);
             if (ph > y) y = ph;
         }
-        // 添加一些随机起伏让地面更自然（除山峰区域外）
         boolean onPeak = false;
         for (PeakInfo peak : peaks) {
             float dx = x - peak.center.x;
@@ -184,10 +161,6 @@ public class TerrainGenerator {
         return a.crs(b).nor();
     }
 
-    /**
-     * 构建正方体空气墙（4面透明墙 + 底部）
-     * 使用索引方式兼容 LibGDX 1.12.1
-     */
     private void buildWalls() {
         float half = GameConfig.WORLD_SIZE / 2f;
         float height = 50f;
@@ -195,7 +168,6 @@ public class TerrainGenerator {
         ModelBuilder builder = new ModelBuilder();
         builder.begin();
 
-        // 半透明蓝色材质
         Material wallMat = new Material(
             ColorAttribute.createDiffuse(new Color(0.3f, 0.5f, 0.9f, 0.15f)),
             new ColorAttribute(ColorAttribute.createSpecular(Color.WHITE)),
@@ -203,20 +175,14 @@ public class TerrainGenerator {
         );
 
         MeshPartBuilder mpb = builder.part("walls", GL20.GL_TRIANGLES,
-            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal,
-            wallMat);
+            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal, wallMat);
 
-        // 4面墙
-        // 前面 (z = +half)
         buildWallQuadIndexed(mpb, new Vector3(-half, 0, half), new Vector3(half, 0, half),
             new Vector3(-half, height, half), new Vector3(half, height, half));
-        // 后面 (z = -half)
         buildWallQuadIndexed(mpb, new Vector3(half, 0, -half), new Vector3(-half, 0, -half),
             new Vector3(half, height, -half), new Vector3(-half, height, -half));
-        // 左面 (x = -half)
         buildWallQuadIndexed(mpb, new Vector3(-half, 0, -half), new Vector3(-half, 0, half),
             new Vector3(-half, height, -half), new Vector3(-half, height, half));
-        // 右面 (x = +half)
         buildWallQuadIndexed(mpb, new Vector3(half, 0, half), new Vector3(half, 0, -half),
             new Vector3(half, height, half), new Vector3(half, height, -half));
 
@@ -234,19 +200,11 @@ public class TerrainGenerator {
         mpb.triangle(iBr, iTr, iTl);
     }
 
-    // ===== 碰撞检测 =====
-
-    /**
-     * 检测位置是否在世界边界内
-     */
     public boolean isInsideWorld(float x, float z) {
         float half = GameConfig.WORLD_SIZE / 2f - GameConfig.PLAYER_RADIUS;
         return x >= -half && x <= half && z >= -half && z <= half;
     }
 
-    /**
-     * 将位置限制在世界边界内（空气墙碰撞）
-     */
     public Vector3 clampToWorld(Vector3 pos) {
         float half = GameConfig.WORLD_SIZE / 2f - GameConfig.PLAYER_RADIUS;
         pos.x = MathUtils.clamp(pos.x, -half, half);
@@ -254,25 +212,14 @@ public class TerrainGenerator {
         return pos;
     }
 
-    /**
-     * 获取山峰列表（用于碰撞和登顶检测）
-     */
-    public List<PeakInfo> getPeaks() {
-        return peaks;
-    }
-
-    // ===== 渲染 =====
-
-    public ModelInstance getTerrainInstance() {
-        return terrainInstance;
-    }
-
-    public ModelInstance[] getWallInstances() {
-        return wallInstances;
-    }
+    public List<PeakInfo> getPeaks() { return peaks; }
+    public ModelInstance getTerrainInstance() { return terrainInstance; }
+    public ModelInstance getGroundInstance() { return groundInstance; }
+    public ModelInstance[] getWallInstances() { return wallInstances; }
 
     public void dispose() {
         if (terrainModel != null) terrainModel.dispose();
+        if (groundModel != null) groundModel.dispose();
         if (wallModel != null) wallModel.dispose();
     }
 }

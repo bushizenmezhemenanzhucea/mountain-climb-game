@@ -31,39 +31,30 @@ import com.mountainclimb.game.player.Player;
 import com.mountainclimb.game.save.SaveManager;
 import com.mountainclimb.game.world.TerrainGenerator;
 
-/**
- * 3D游戏场景
- * 后山地图：包含山脉、空气墙、碰撞检测、登顶检测
- */
 public class GameScreen implements Screen {
     private MountainClimbGame game;
     private boolean continueGame;
 
-    // 3D
     private PerspectiveCamera camera;
     private ModelBatch modelBatch;
     private Environment environment;
     private TerrainGenerator terrain;
     private Player player;
 
-    // 输入
     private Stage uiStage;
     private Joystick joystick;
     private InputMultiplexer inputMultiplexer;
     private GestureDetector gestureDetector;
 
-    // 状态
     private boolean paused = false;
     private boolean summitShown = false;
     private float summitTimer = 0f;
     private boolean wasMoving = false;
 
-    // UI
     private Label summitLabel;
     private Dialog pauseDialog;
     private Skin skin;
 
-    // 触摸跟踪
     private float lastTouchX, lastTouchY;
     private boolean touchInRightHalf = false;
 
@@ -77,49 +68,41 @@ public class GameScreen implements Screen {
         skin = game.getSkin();
         modelBatch = new ModelBatch();
 
-        // 相机设置
         float aspect = (float) Gdx.graphics.getWidth() / Gdx.graphics.getHeight();
         camera = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         camera.near = 0.1f;
         camera.far = 300f;
 
-        // 环境光照
         environment = new Environment();
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.4f, 0.4f, 0.4f, 1f));
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.7f, -0.5f, -1f, -0.5f));
         environment.add(new DirectionalLight().set(0.3f, 0.3f, 0.4f, 0.5f, 0.5f, -0.5f));
 
-        // 生成地形
         terrain = new TerrainGenerator();
 
-        // 创建玩家
         Vector3 startPos = new Vector3(0, 5, 0);
         if (continueGame) {
             Vector3 saved = SaveManager.getInstance().loadProgress();
             if (saved != null) startPos = saved;
         }
+        float terrainH = terrain.getTerrainHeight(startPos.x, startPos.z);
+        startPos.y = Math.max(startPos.y, terrainH + GameConfig.PLAYER_HEIGHT + 0.5f);
         player = new Player(startPos.x, startPos.y, startPos.z);
 
-        // UI
         uiStage = new Stage(new ScreenViewport());
         setupUI();
-
-        // 输入处理
         setupInput();
 
-        // 播放BGM
         AudioManager.getInstance().playBGM();
     }
 
     private void setupUI() {
-        // 摇杆
         float joySize = Math.min(Gdx.graphics.getWidth(), Gdx.graphics.getHeight()) * 0.25f;
         float knobSize = joySize * 0.4f;
         joystick = new Joystick(joySize, knobSize);
         joystick.setPosition(30f, 30f);
         uiStage.addActor(joystick);
 
-        // 登顶提示（默认隐藏）
         summitLabel = new Label("成功登顶!", skin);
         summitLabel.setFontScale(2f);
         summitLabel.setColor(Color.GOLD);
@@ -130,7 +113,6 @@ public class GameScreen implements Screen {
         summitLabel.setVisible(false);
         uiStage.addActor(summitLabel);
 
-        // 暂停按钮（右上角）
         TextButton btnPause = new TextButton("||", skin);
         float btnSize = 60f;
         btnPause.setSize(btnSize, btnSize);
@@ -146,7 +128,6 @@ public class GameScreen implements Screen {
     }
 
     private void setupInput() {
-        // 手势检测器（右半屏幕滑屏转视角）
         gestureDetector = new GestureDetector(new GestureDetector.GestureAdapter() {
             @Override
             public boolean touchDown(float x, float y, int pointer, int button) {
@@ -178,7 +159,6 @@ public class GameScreen implements Screen {
                 }
                 return false;
             }
-
             @Override public boolean keyUp(int keycode) { return false; }
             @Override public boolean keyTyped(char character) { return false; }
             @Override public boolean touchDown(int screenX, int screenY, int pointer, int button) { return false; }
@@ -217,7 +197,6 @@ public class GameScreen implements Screen {
                 } else if ("save".equals(action)) {
                     SaveManager.getInstance().saveProgress(player.getPosition());
                     AudioManager.getInstance().playButtonSound();
-                    // 显示保存成功提示
                 } else if ("menu".equals(action)) {
                     AudioManager.getInstance().playButtonSound();
                     game.setScreen(new MainMenuScreen(game));
@@ -237,30 +216,30 @@ public class GameScreen implements Screen {
             updateGame(delta);
         }
 
-        // 渲染3D
-        Gdx.gl.glClearColor(0.5f, 0.7f, 0.9f, 1f); // 天蓝色背景
+        Gdx.gl.glClearColor(0.5f, 0.7f, 0.9f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
-        // 更新相机
         camera.position.set(player.getCameraPosition());
         camera.lookAt(player.getLookAt());
         camera.up.set(Vector3.Y);
         camera.update();
 
-        // 渲染模型
         modelBatch.begin(camera);
+        // 先渲染地面平面
+        modelBatch.render(terrain.getGroundInstance(), environment);
+        // 再渲染地形山峰
         modelBatch.render(terrain.getTerrainInstance(), environment);
+        // 空气墙
         for (ModelInstance wall : terrain.getWallInstances()) {
             modelBatch.render(wall, environment);
         }
+        // 玩家
         modelBatch.render(player.getModelInstance(), environment);
         modelBatch.end();
 
-        // 渲染UI
         uiStage.act(delta);
         uiStage.draw();
 
-        // 登顶提示淡出
         if (summitShown) {
             summitTimer += delta;
             if (summitTimer > 3f) {
@@ -274,39 +253,25 @@ public class GameScreen implements Screen {
     }
 
     private void updateGame(float delta) {
-        // 1. 获取摇杆方向
         Vector2 moveDir = joystick.getDirection();
         boolean moving = moveDir.len2() > 0.01f;
 
-        // 2. 播放/停止爬山音效
         if (moving && player.isGrounded() && !wasMoving) {
             AudioManager.getInstance().playClimbSound();
-        } else if (!moving) {
-            // 音效较短，无需手动停止
         }
         wasMoving = moving;
 
-        // 3. 移动玩家
         player.move(moveDir, delta, 0);
 
-        // 4. 获取当前地形高度
         float terrainH = terrain.getTerrainHeight(player.getPosition().x, player.getPosition().z);
-
-        // 5. 应用地形和重力
         player.applyGravity(delta, terrainH);
 
-        // 6. 限制在世界边界内（空气墙碰撞）
         Vector3 pos = player.getPosition();
         pos = terrain.clampToWorld(pos);
         player.setPosition(pos);
 
-        // 7. 更新玩家变换
         player.updateTransform();
 
-        // 8. 自动保存进度（每30秒）
-        // 可以添加计时器定期保存
-
-        // 9. 登顶检测
         checkSummit();
     }
 
@@ -323,8 +288,6 @@ public class GameScreen implements Screen {
                     Gdx.graphics.getHeight() / 2f
                 );
                 AudioManager.getInstance().playSummitSound();
-
-                // 保存登顶进度
                 SaveManager.getInstance().saveProgress(pos);
             }
         }
@@ -338,22 +301,12 @@ public class GameScreen implements Screen {
         uiStage.getViewport().update(width, height, true);
     }
 
-    @Override
-    public void pause() {
-        // 自动保存
+    @Override public void pause() {
         SaveManager.getInstance().saveProgress(player.getPosition());
     }
-
-    @Override
-    public void resume() {}
-
-    @Override
-    public void hide() {
-        Gdx.input.setInputProcessor(null);
-    }
-
-    @Override
-    public void dispose() {
+    @Override public void resume() {}
+    @Override public void hide() { Gdx.input.setInputProcessor(null); }
+    @Override public void dispose() {
         modelBatch.dispose();
         terrain.dispose();
         player.dispose();

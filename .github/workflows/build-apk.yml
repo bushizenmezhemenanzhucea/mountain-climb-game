@@ -18,23 +18,29 @@ jobs:
         cache: gradle
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
-    - name: Install Android SDK Build Tools
+    - name: Install tools
       run: |
-        sdkmanager "build-tools;33.0.0"
-        sdkmanager "platforms;android-33"
-    - name: Install system fonts
-      run: |
+        sdkmanager "build-tools;33.0.0" "platforms;android-33"
         sudo apt-get update
-        sudo apt-get install -y fonts-noto-cjk fonts-wqy-zenhei
-        pip install Pillow
-    - name: Create assets
-      run: python3 scripts/create-assets.py
-    - name: Verify assets
+        sudo apt-get install -y fonts-noto-cjk fontconfig
+        pip install Pillow fonttools
+    - name: Create assets with font
       run: |
+        python3 scripts/create-assets.py
+        # 安装字体并复制到 assets
+        sudo apt-get install -y fonts-noto-cjk
+        mkdir -p android/src/main/assets/fonts
+        # 尝试多种路径找字体
+        for path in /usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf /usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc; do
+          if [ -f "$path" ]; then
+            cp "$path" android/src/main/assets/fonts/
+            ls -lh android/src/main/assets/fonts/
+            break
+          fi
+        done
+        # 验证
         echo "=== Assets ==="
-        find android/src/main/assets -type f 2>/dev/null | sort
-        echo "=== Font ==="
-        ls -lh android/src/main/assets/fonts/ 2>/dev/null || echo "NO FONT!"
+        find android/src/main/assets -type f | sort
     - name: Download native libraries
       run: |
         GDX_VER="1.12.1"
@@ -45,20 +51,15 @@ jobs:
             curl -L -o /tmp/${lib}-${arch}.jar "https://repo1.maven.org/maven2/com/badlogicgames/gdx/${lib}-platform/${GDX_VER}/${lib}-platform-${GDX_VER}-natives-${arch}.jar" 2>/dev/null
             unzip -o /tmp/${lib}-${arch}.jar -d /tmp/${lib}-${arch}/ 2>/dev/null || true
             so_file=$(find /tmp/${lib}-${arch}/ -name "*.so" | head -1)
-            if [ -n "$so_file" ]; then
-              cp "$so_file" $JNI_DIR/${arch}/
-            fi
+            [ -n "$so_file" ] && cp "$so_file" $JNI_DIR/${arch}/
           done
         done
         find $JNI_DIR -type f | sort
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-    - name: Build Debug APK
-      run: ./gradlew android:assembleDebug --no-daemon
-      env:
-        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-    - name: Build Release APK
-      run: ./gradlew android:assembleRelease --no-daemon
+    - name: Build APKs
+      run: |
+        chmod +x gradlew
+        ./gradlew android:assembleDebug --no-daemon
+        ./gradlew android:assembleRelease --no-daemon
       env:
         ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
     - name: Upload Debug APK
