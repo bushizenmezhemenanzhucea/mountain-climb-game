@@ -22,25 +22,25 @@ jobs:
       run: |
         sdkmanager "build-tools;33.0.0" "platforms;android-33"
         sudo apt-get update
-        sudo apt-get install -y fonts-noto-cjk fontconfig
+        sudo apt-get install -y fonts-wqy-zenhei fontconfig
         pip install Pillow fonttools
-    - name: Create assets with font
+    - name: Generate all assets
       run: |
         python3 scripts/create-assets.py
-        # 安装字体并复制到 assets
-        sudo apt-get install -y fonts-noto-cjk
-        mkdir -p android/src/main/assets/fonts
-        # 尝试多种路径找字体
-        for path in /usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf /usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc; do
-          if [ -f "$path" ]; then
-            cp "$path" android/src/main/assets/fonts/
-            ls -lh android/src/main/assets/fonts/
-            break
-          fi
-        done
-        # 验证
-        echo "=== Assets ==="
-        find android/src/main/assets -type f | sort
+        echo "=== Verifying font ==="
+        ls -lh android/src/main/assets/fonts/
+        python3 -c "
+import os
+fnt = 'android/src/main/assets/fonts/game_font.fnt'
+png = 'android/src/main/assets/fonts/game_font.png'
+if os.path.exists(fnt) and os.path.exists(png):
+    print(f'Font OK: fnt={os.path.getsize(fnt)} bytes, png={os.path.getsize(png)} bytes')
+else:
+    print('Font MISSING!')
+    exit(1)
+"
+    - name: List all assets
+      run: find android/src/main/assets -type f | sort
     - name: Download native libraries
       run: |
         GDX_VER="1.12.1"

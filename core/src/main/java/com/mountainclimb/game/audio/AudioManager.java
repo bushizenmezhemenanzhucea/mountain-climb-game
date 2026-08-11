@@ -7,17 +7,12 @@ import com.badlogic.gdx.files.FileHandle;
 import com.mountainclimb.game.GameConfig;
 import com.mountainclimb.game.save.SaveManager;
 
-/**
- * 音效管理器：统一管理按钮音、爬山音、BGM，支持音量调节
- */
 public class AudioManager {
     private static AudioManager instance;
-
     private Music bgm;
     private Sound btnSound;
     private Sound climbSound;
     private Sound summitSound;
-
     private float soundVolume = 0.7f;
     private float musicVolume = 0.5f;
     private boolean bgmPlaying = false;
@@ -27,9 +22,7 @@ public class AudioManager {
     }
 
     public static AudioManager getInstance() {
-        if (instance == null) {
-            instance = new AudioManager();
-        }
+        if (instance == null) instance = new AudioManager();
         return instance;
     }
 
@@ -38,108 +31,58 @@ public class AudioManager {
         musicVolume = SaveManager.getInstance().getMusicVolume();
     }
 
-    /**
-     * 优先从外部更新目录加载，回退到内部 assets
-     */
     private FileHandle getAudioFile(String path) {
-        // 检查外部更新目录
         FileHandle external = Gdx.files.external(GameConfig.UPDATE_DIR + "/" + path);
-        if (external.exists()) {
-            return external;
-        }
+        if (external.exists()) return external;
         return Gdx.files.internal(path);
     }
 
     public void loadSounds() {
-        try {
-            btnSound = Gdx.audio.newSound(getAudioFile("sounds/button_click.wav"));
-        } catch (Exception e) {
-            Gdx.app.log("AudioManager", "Button sound not found");
-        }
-        try {
-            climbSound = Gdx.audio.newSound(getAudioFile("sounds/climb.wav"));
-        } catch (Exception e) {
-            Gdx.app.log("AudioManager", "Climb sound not found");
-        }
-        try {
-            summitSound = Gdx.audio.newSound(getAudioFile("sounds/summit.wav"));
-        } catch (Exception e) {
-            Gdx.app.log("AudioManager", "Summit sound not found");
-        }
+        try { btnSound = Gdx.audio.newSound(getAudioFile("sounds/button_click.wav")); } catch (Exception e) {}
+        try { climbSound = Gdx.audio.newSound(getAudioFile("sounds/climb.wav")); } catch (Exception e) {}
+        try { summitSound = Gdx.audio.newSound(getAudioFile("sounds/summit.wav")); } catch (Exception e) {}
     }
 
     public void loadBGM() {
         try {
-            if (bgm != null) {
-                bgm.stop();
-                bgm.dispose();
-            }
+            if (bgm != null) { bgm.stop(); bgm.dispose(); }
             bgm = Gdx.audio.newMusic(getAudioFile("music/bgm.wav"));
             bgm.setLooping(true);
             bgm.setVolume(musicVolume);
-        } catch (Exception e) {
-            Gdx.app.log("AudioManager", "BGM not found");
-        }
+        } catch (Exception e) {}
     }
 
     public void playBGM() {
-        if (bgm != null && !bgmPlaying) {
-            bgm.play();
-            bgmPlaying = true;
-        }
+        if (bgm != null && !bgmPlaying) { bgm.play(); bgmPlaying = true; }
     }
-
     public void pauseBGM() {
-        if (bgm != null && bgmPlaying) {
-            bgm.pause();
-            bgmPlaying = false;
-        }
+        if (bgm != null && bgmPlaying) { bgm.pause(); bgmPlaying = false; }
     }
-
     public void stopBGM() {
-        if (bgm != null) {
-            bgm.stop();
-            bgmPlaying = false;
-        }
+        if (bgm != null) { bgm.stop(); bgmPlaying = false; }
     }
 
     public void playButtonSound() {
-        if (btnSound != null) {
-            btnSound.play(soundVolume);
-        }
+        if (btnSound != null) btnSound.play(soundVolume);
     }
-
     public void playClimbSound() {
-        if (climbSound != null) {
-            climbSound.play(soundVolume);
-        }
+        if (climbSound != null) climbSound.loop(soundVolume);
     }
-
+    public void stopClimbSound() {
+        if (climbSound != null) climbSound.stop();
+    }
     public void playSummitSound() {
-        if (summitSound != null) {
-            summitSound.play(soundVolume);
-        }
+        if (summitSound != null) summitSound.play(soundVolume);
     }
 
     public void setSoundVolume(float volume) {
         soundVolume = Math.max(0f, Math.min(1f, volume));
         SaveManager.getInstance().setSoundVolume(soundVolume);
     }
-
     public void setMusicVolume(float volume) {
         musicVolume = Math.max(0f, Math.min(1f, volume));
         SaveManager.getInstance().setMusicVolume(musicVolume);
-        if (bgm != null) {
-            bgm.setVolume(musicVolume);
-        }
-    }
-
-    public float getSoundVolume() {
-        return soundVolume;
-    }
-
-    public float getMusicVolume() {
-        return musicVolume;
+        if (bgm != null) bgm.setVolume(musicVolume);
     }
 
     public void dispose() {

@@ -5,14 +5,10 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
-import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.mountainclimb.game.GameConfig;
@@ -23,27 +19,17 @@ import com.mountainclimb.game.update.UpdateListener;
 import com.mountainclimb.game.update.UpdateManager;
 import com.mountainclimb.game.update.VersionInfo;
 
-/**
- * 主菜单界面（横屏）
- * 包含：开始游戏、继续游戏、设置、更新日志、检查更新
- * 支持滚动，底部显示版本号，背景为群山图片
- */
 public class MainMenuScreen implements Screen, UpdateListener {
     private MountainClimbGame game;
     private Stage stage;
     private Viewport viewport;
-
     private Table rootTable;
     private ScrollPane scrollPane;
     private Table menuTable;
-
     private Label versionLabel;
     private TextButton btnContinue;
-
     private UpdateManager updateManager;
     private Dialog updateDialog;
-    private Label progressLabel;
-
     private Texture bgTexture;
 
     public MainMenuScreen(MountainClimbGame game) {
@@ -56,29 +42,24 @@ public class MainMenuScreen implements Screen, UpdateListener {
         stage = new Stage(viewport);
         Gdx.input.setInputProcessor(stage);
 
-        // 加载背景（群山环绕）
         try {
             bgTexture = new Texture(Gdx.files.internal("textures/menu_bg.png"));
             bgTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         } catch (Exception e) {
-            Gdx.app.log("MainMenu", "Background not found, using color");
+            Gdx.app.log("MainMenu", "Background not found");
         }
 
-        // 创建根布局
         rootTable = new Table();
         rootTable.setFillParent(true);
         stage.addActor(rootTable);
 
-        // 创建菜单按钮表格（用于滚动）
         menuTable = new Table();
         menuTable.top();
 
         Skin skin = game.getSkin();
         float btnWidth = Gdx.graphics.getWidth() * 0.5f;
         float btnHeight = 70f;
-        float padTop = 20f;
 
-        // 开始游戏
         TextButton btnStart = new TextButton("开始游戏", skin);
         btnStart.addListener(new ClickListener() {
             @Override
@@ -87,22 +68,18 @@ public class MainMenuScreen implements Screen, UpdateListener {
                 game.setScreen(new MapSelectScreen(game));
             }
         });
-        menuTable.add(btnStart).width(btnWidth).height(btnHeight).padTop(padTop).row();
+        menuTable.add(btnStart).width(btnWidth).height(btnHeight).padTop(20f).row();
 
-        // 继续游戏（根据存档状态启用/禁用）
         btnContinue = new TextButton("继续游戏", skin);
         btnContinue.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 AudioManager.getInstance().playButtonSound();
-                if (SaveManager.getInstance().hasProgress()) {
-                    game.setScreen(new GameScreen(game, true));
-                }
+                game.setScreen(new GameScreen(game, true));
             }
         });
-        menuTable.add(btnContinue).width(btnWidth).height(btnHeight).padTop(padTop).row();
+        menuTable.add(btnContinue).width(btnWidth).height(btnHeight).padTop(20f).row();
 
-        // 设置
         TextButton btnSettings = new TextButton("设置", skin);
         btnSettings.addListener(new ClickListener() {
             @Override
@@ -111,9 +88,8 @@ public class MainMenuScreen implements Screen, UpdateListener {
                 game.setScreen(new SettingsScreen(game));
             }
         });
-        menuTable.add(btnSettings).width(btnWidth).height(btnHeight).padTop(padTop).row();
+        menuTable.add(btnSettings).width(btnWidth).height(btnHeight).padTop(20f).row();
 
-        // 更新日志
         TextButton btnChangelog = new TextButton("更新日志", skin);
         btnChangelog.addListener(new ClickListener() {
             @Override
@@ -122,47 +98,38 @@ public class MainMenuScreen implements Screen, UpdateListener {
                 showChangelogDialog();
             }
         });
-        menuTable.add(btnChangelog).width(btnWidth).height(btnHeight).padTop(padTop).row();
+        menuTable.add(btnChangelog).width(btnWidth).height(btnHeight).padTop(20f).row();
 
-        // 检查更新
-        TextButton btnCheckUpdate = new TextButton("检查更新", skin);
-        btnCheckUpdate.addListener(new ClickListener() {
+        TextButton btnUpdate = new TextButton("检查更新", skin);
+        btnUpdate.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 AudioManager.getInstance().playButtonSound();
                 checkUpdate();
             }
         });
-        menuTable.add(btnCheckUpdate).width(btnWidth).height(btnHeight).padTop(padTop).row();
+        menuTable.add(btnUpdate).width(btnWidth).height(btnHeight).padTop(20f).row();
 
-        // 滚动面板包裹菜单
         scrollPane = new ScrollPane(menuTable, skin);
         scrollPane.setFadeScrollBars(false);
-        scrollPane.setScrollingDisabled(true, false); // 只允许垂直滚动
-
-        // 将滚动面板放入根表格
+        scrollPane.setScrollingDisabled(true, false);
         rootTable.add(scrollPane).expand().fill().pad(50f).row();
 
-        // 底部灰色版本号
         versionLabel = new Label("v" + GameConfig.VERSION, skin);
         versionLabel.setColor(Color.GRAY);
         rootTable.add(versionLabel).padBottom(10f);
 
-        // 刷新继续按钮状态
         refreshContinueButton();
 
-        // 初始化热更新
         updateManager = new UpdateManager();
         updateManager.setListener(this);
 
-        // 播放BGM
         AudioManager.getInstance().playBGM();
     }
 
     private void refreshContinueButton() {
         boolean hasProgress = SaveManager.getInstance().hasProgress();
         btnContinue.setDisabled(!hasProgress);
-        // 灰色禁用样式
         if (!hasProgress) {
             btnContinue.getLabel().setColor(Color.GRAY);
         } else {
@@ -176,144 +143,93 @@ public class MainMenuScreen implements Screen, UpdateListener {
     }
 
     private void showChangelogDialog() {
-        Dialog dialog = new Dialog("更新日志", game.getSkin()) {
-            @Override
-            protected void result(Object object) {
-                // 关闭
-            }
-        };
-        dialog.getContentTable().add(new Label("V1.0.0 初始版本\n- 3D爬山游戏\n- 后山地图\n- 热更新系统", game.getSkin()))
-            .pad(20f);
-        dialog.button("关闭", true).padBottom(10f);
-        dialog.show(stage);
+        try {
+            Dialog dialog = new Dialog("更新日志", game.getSkin(), "dialog") {
+                @Override
+                protected void result(Object object) {}
+            };
+            dialog.getContentTable().add(new Label(
+                "V1.0.0 初始版本\n- 3D爬山游戏\n- 后山地图\n- 热更新系统",
+                game.getSkin()
+            )).pad(20f);
+            dialog.button("关闭", true).padBottom(10f);
+            dialog.show(stage);
+        } catch (Exception e) {
+            Gdx.app.error("MainMenu", "Changelog dialog error: " + e.getMessage());
+            showInfoDialog("更新日志: V1.0.0 初始版本");
+        }
     }
 
     private void showInfoDialog(String message) {
-        if (updateDialog != null) {
-            updateDialog.hide();
+        try {
+            if (updateDialog != null) updateDialog.hide();
+            updateDialog = new Dialog("提示", game.getSkin(), "dialog") {
+                @Override
+                protected void result(Object object) {}
+            };
+            updateDialog.text(message);
+            updateDialog.button("确定", true);
+            updateDialog.show(stage);
+        } catch (Exception e) {
+            Gdx.app.error("MainMenu", "Dialog error: " + e.getMessage());
         }
-        updateDialog = new Dialog("提示", game.getSkin());
-        updateDialog.text(message);
-        updateDialog.button("确定", true);
-        updateDialog.show(stage);
     }
-
-    // ===== UpdateListener 回调 =====
 
     @Override
     public void onUpdateFound(VersionInfo newVersion) {
-        // 关闭之前的对话框
-        if (updateDialog != null) {
-            updateDialog.hide();
-        }
-        updateDialog = new Dialog("发现新版本", game.getSkin()) {
-            @Override
-            protected void result(Object object) {
-                if (object instanceof Boolean && (Boolean) object) {
-                    // 用户点击"立即更新"，开始下载
-                    hide();
-                    showDownloadDialog();
-                    updateManager.downloadAndApplyUpdate();
+        try {
+            if (updateDialog != null) updateDialog.hide();
+            updateDialog = new Dialog("发现新版本", game.getSkin(), "dialog") {
+                @Override
+                protected void result(Object object) {
+                    if (Boolean.TRUE.equals(object)) {
+                        showInfoDialog("正在下载更新...");
+                        updateManager.downloadUpdate(newVersion);
+                    }
                 }
-            }
-        };
-        String msg = "版本: " + newVersion.versionName + "\n\n更新内容:\n" +
-            (newVersion.updateLog != null && !newVersion.updateLog.isEmpty() ? newVersion.updateLog : "暂无更新日志");
-        if (newVersion.forceUpdate) {
-            msg += "\n\n(此为强制更新，必须更新后才能继续游戏)";
-            updateDialog.text(msg);
-            updateDialog.button("立即更新", true).padBottom(10f);
-        } else {
-            updateDialog.text(msg);
-            updateDialog.button("立即更新", true).padBottom(10f);
-            updateDialog.button("以后再说", false).padBottom(10f);
-        }
-        updateDialog.show(stage);
-    }
-
-    private void showDownloadDialog() {
-        if (updateDialog != null) {
-            updateDialog.hide();
-        }
-        updateDialog = new Dialog("正在下载", game.getSkin());
-        progressLabel = new Label("准备下载...", game.getSkin());
-        updateDialog.getContentTable().add(progressLabel).pad(20f);
-        updateDialog.show(stage);
-    }
-
-    @Override
-    public void onNoUpdate(String reason) {
-        showInfoDialog(reason);
-    }
-
-    @Override
-    public void onDownloadProgress(int percent) {
-        if (progressLabel != null) {
-            progressLabel.setText("下载进度: " + percent + "%");
+            };
+            updateDialog.text("发现新版本: v" + newVersion.versionName + "\n是否下载更新?");
+            updateDialog.button("下载", true).pad(10f);
+            updateDialog.button("取消", false).pad(10f);
+            updateDialog.show(stage);
+        } catch (Exception e) {
+            Gdx.app.error("MainMenu", "Update dialog error: " + e.getMessage());
         }
     }
 
     @Override
-    public void onDownloadComplete() {
-        showInfoDialog("下载完成，正在应用更新...");
+    public void onNoUpdate(String message) {
+        showInfoDialog(message);
     }
 
     @Override
-    public void onUpdateComplete(boolean needRestart) {
-        if (updateDialog != null) {
-            updateDialog.hide();
-        }
-        updateDialog = new Dialog("更新完成", game.getSkin());
-        updateDialog.text("更新已成功应用!\n请重启应用以加载新内容。");
-        updateDialog.button("确定", true).padBottom(10f);
-        updateDialog.show(stage);
+    public void onDownloadComplete(VersionInfo version) {
+        showInfoDialog("更新已下载完成!\n请重启游戏以应用更新。");
     }
 
     @Override
-    public void onUpdateError(String error) {
-        if (updateDialog != null) {
-            updateDialog.hide();
-        }
-        showInfoDialog("更新出错: " + error);
+    public void onDownloadFailed(String message) {
+        showInfoDialog("下载失败: " + message);
     }
-
-    // ===== Screen 接口 =====
 
     @Override
     public void render(float delta) {
-        // 清屏
-        Gdx.gl.glClearColor(0.1f, 0.12f, 0.15f, 1f);
+        Gdx.gl.glClearColor(0.1f, 0.3f, 0.1f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-        // 绘制背景
         if (bgTexture != null) {
             stage.getBatch().begin();
             stage.getBatch().draw(bgTexture, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
             stage.getBatch().end();
         }
-
         stage.act(delta);
         stage.draw();
     }
 
-    @Override
-    public void resize(int width, int height) {
-        viewport.update(width, height, true);
-    }
-
-    @Override
-    public void pause() {}
-
-    @Override
-    public void resume() {}
-
-    @Override
-    public void hide() {
-        Gdx.input.setInputProcessor(null);
-    }
-
-    @Override
-    public void dispose() {
+    @Override public void resize(int width, int height) { viewport.update(width, height, true); }
+    @Override public void pause() {}
+    @Override public void resume() {}
+    @Override public void hide() { Gdx.input.setInputProcessor(null); }
+    @Override public void dispose() {
         stage.dispose();
         if (bgTexture != null) bgTexture.dispose();
     }

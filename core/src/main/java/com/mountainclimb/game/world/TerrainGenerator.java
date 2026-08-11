@@ -62,7 +62,6 @@ public class TerrainGenerator {
     private Model wallModel;
     private ModelInstance[] wallInstances;
     private List<PeakInfo> peaks = new ArrayList<>();
-
     private static final int TERRAIN_SEGMENTS = 80;
 
     public TerrainGenerator() {
@@ -96,40 +95,32 @@ public class TerrainGenerator {
         Material groundMat = new Material(ColorAttribute.createDiffuse(new Color(0.25f, 0.45f, 0.15f, 1f)));
         MeshPartBuilder mpb = builder.part("ground", GL20.GL_TRIANGLES,
             VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal, groundMat);
-
         float half = GameConfig.WORLD_SIZE / 2f;
         float step = GameConfig.WORLD_SIZE / TERRAIN_SEGMENTS;
-
         for (int i = 0; i < TERRAIN_SEGMENTS; i++) {
             for (int j = 0; j < TERRAIN_SEGMENTS; j++) {
                 float x0 = -half + i * step;
                 float z0 = -half + j * step;
                 float x1 = x0 + step;
                 float z1 = z0 + step;
-
                 float h00 = getTerrainHeight(x0, z0);
                 float h10 = getTerrainHeight(x1, z0);
                 float h01 = getTerrainHeight(x0, z1);
                 float h11 = getTerrainHeight(x1, z1);
-
                 Vector3 v00 = new Vector3(x0, h00, z0);
                 Vector3 v10 = new Vector3(x1, h10, z0);
                 Vector3 v01 = new Vector3(x0, h01, z1);
                 Vector3 v11 = new Vector3(x1, h11, z1);
-
                 Vector3 n1 = calculateNormal(v00, v10, v01);
                 Vector3 n2 = calculateNormal(v10, v11, v01);
-
                 short i00 = mpb.vertex(v00, n1, null, null);
                 short i10 = mpb.vertex(v10, n1, null, null);
                 short i01 = mpb.vertex(v01, n1, null, null);
                 short i11 = mpb.vertex(v11, n2, null, null);
-
                 mpb.triangle(i00, i10, i01);
                 mpb.triangle(i10, i11, i01);
             }
         }
-
         terrainModel = builder.end();
         terrainInstance = new ModelInstance(terrainModel);
     }
@@ -164,19 +155,15 @@ public class TerrainGenerator {
     private void buildWalls() {
         float half = GameConfig.WORLD_SIZE / 2f;
         float height = 50f;
-
         ModelBuilder builder = new ModelBuilder();
         builder.begin();
-
         Material wallMat = new Material(
             ColorAttribute.createDiffuse(new Color(0.3f, 0.5f, 0.9f, 0.15f)),
             new ColorAttribute(ColorAttribute.createSpecular(Color.WHITE)),
             new com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute(true, GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, 0.15f)
         );
-
         MeshPartBuilder mpb = builder.part("walls", GL20.GL_TRIANGLES,
             VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal, wallMat);
-
         buildWallQuadIndexed(mpb, new Vector3(-half, 0, half), new Vector3(half, 0, half),
             new Vector3(-half, height, half), new Vector3(half, height, half));
         buildWallQuadIndexed(mpb, new Vector3(half, 0, -half), new Vector3(-half, 0, -half),
@@ -185,7 +172,6 @@ public class TerrainGenerator {
             new Vector3(-half, height, -half), new Vector3(-half, height, half));
         buildWallQuadIndexed(mpb, new Vector3(half, 0, half), new Vector3(half, 0, -half),
             new Vector3(half, height, half), new Vector3(half, height, -half));
-
         wallModel = builder.end();
         wallInstances = new ModelInstance[] { new ModelInstance(wallModel) };
     }

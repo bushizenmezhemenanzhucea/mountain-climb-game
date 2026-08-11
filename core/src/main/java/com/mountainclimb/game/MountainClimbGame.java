@@ -7,12 +7,12 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.mountainclimb.game.audio.AudioManager;
 import com.mountainclimb.game.screen.MainMenuScreen;
@@ -31,13 +31,14 @@ public class MountainClimbGame extends Game {
 
     private void createSkin() {
         skin = new Skin();
-        font = loadChineseFont();
+        font = loadBitmapFont();
         skin.add("default", font);
 
         Pixmap defaultPixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         defaultPixmap.setColor(1f, 1f, 1f, 1f);
         defaultPixmap.fill();
-        skin.add("default", new TextureRegionDrawable(new Texture(defaultPixmap)));
+        TextureRegionDrawable defaultDrawable = new TextureRegionDrawable(new Texture(defaultPixmap));
+        skin.add("default", defaultDrawable);
 
         Label.LabelStyle labelStyle = new Label.LabelStyle(font, Color.WHITE);
         skin.add("default", labelStyle);
@@ -47,17 +48,21 @@ public class MountainClimbGame extends Game {
         buttonStyle.fontColor = Color.WHITE;
         buttonStyle.downFontColor = Color.YELLOW;
 
-        Pixmap pixmapUp = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        pixmapUp.setColor(0.2f, 0.25f, 0.3f, 0.8f);
-        pixmapUp.fill();
-        buttonStyle.up = new TextureRegionDrawable(new Texture(pixmapUp));
+        Pixmap btnUp = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        btnUp.setColor(0.2f, 0.25f, 0.3f, 0.8f);
+        btnUp.fill();
+        buttonStyle.up = new TextureRegionDrawable(new Texture(btnUp));
 
-        Pixmap pixmapDown = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        pixmapDown.setColor(0.3f, 0.4f, 0.5f, 0.9f);
-        pixmapDown.fill();
-        buttonStyle.down = new TextureRegionDrawable(new Texture(pixmapDown));
+        Pixmap btnDown = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        btnDown.setColor(0.3f, 0.4f, 0.5f, 0.9f);
+        btnDown.fill();
+        buttonStyle.down = new TextureRegionDrawable(new Texture(btnDown));
 
         skin.add("default", buttonStyle);
+
+        Window.WindowStyle windowStyle = new Window.WindowStyle(font, Color.WHITE, defaultDrawable);
+        skin.add("default", windowStyle);
+        skin.add("dialog", windowStyle);
 
         Slider.SliderStyle sliderStyle = new Slider.SliderStyle();
         Pixmap knobPixmap = new Pixmap(30, 30, Pixmap.Format.RGBA8888);
@@ -75,35 +80,18 @@ public class MountainClimbGame extends Game {
         skin.add("default", scrollStyle);
     }
 
-    private BitmapFont loadChineseFont() {
-        String[] paths = {"fonts/NotoSansSC.otf", "fonts/NotoSansCJKsc-Regular.otf", "fonts/NotoSansCJK-Regular.ttc", "fonts/wqy-zenhei.ttc"};
-        
-        for (String path : paths) {
-            try {
-                com.badlogic.gdx.files.FileHandle fontFile = Gdx.files.internal(path);
-                if (fontFile.exists()) {
-                    Gdx.app.log("Font", "Found: " + path + " (" + fontFile.length() + " bytes)");
-                    FreeTypeFontGenerator generator = new FreeTypeFontGenerator(fontFile);
-                    FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
-                    param.size = 32;
-                    param.color = Color.WHITE;
-                    // 关键：指定中文字符
-                    param.characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,:;!?-+/()[]{}%&$#@*_= '\"\\|~`"
-                        + "开始游戏继续设置更新日志检查退出后山选择地图进入音效音量背景音乐视角灵敏度保存返回主菜单"
-                        + "V1.0.0初始版本D爬山热系统关闭成功登顶保存进度返回主菜单这是一款位于北郊的后山海拔不高但地形复杂几座凸起的山峰连绵起伏山顶有平坦的平台挑战者需要从山脚出发沿着斜坡攀登最终登顶主峰俯瞰整个山谷注意边界有空气墙保护请勿尝试越界"
-                        + "暂停继续保存进度确认取消";
-                    
-                    BitmapFont f = generator.generateFont(param);
-                    generator.dispose();
-                    Gdx.app.log("Font", "SUCCESS: " + path);
-                    return f;
-                }
-            } catch (Exception e) {
-                Gdx.app.error("Font", "Failed " + path + ": " + e.getMessage());
+    private BitmapFont loadBitmapFont() {
+        try {
+            com.badlogic.gdx.files.FileHandle fntFile = Gdx.files.internal("fonts/game_font.fnt");
+            com.badlogic.gdx.files.FileHandle pngFile = Gdx.files.internal("fonts/game_font.png");
+            if (fntFile.exists() && pngFile.exists()) {
+                BitmapFont f = new BitmapFont(fntFile, pngFile, false);
+                Gdx.app.log("Font", "Bitmap font loaded: " + pngFile.length() + " bytes");
+                return f;
             }
+        } catch (Exception e) {
+            Gdx.app.error("Font", "Bitmap font failed: " + e.getMessage());
         }
-        
-        Gdx.app.log("Font", "Using default font");
         BitmapFont defaultFont = new BitmapFont();
         defaultFont.getData().setScale(2f);
         return defaultFont;

@@ -27,7 +27,6 @@ public class MapSelectScreen implements Screen {
     public void show() {
         stage = new Stage(new ScreenViewport());
         Gdx.input.setInputProcessor(stage);
-
         Skin skin = game.getSkin();
         Table table = new Table();
         table.setFillParent(true);

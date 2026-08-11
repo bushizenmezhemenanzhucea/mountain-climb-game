@@ -51,20 +51,15 @@ public class Player {
             velocity.z = 0;
             return;
         }
-
         float radYaw = (float)Math.toRadians(yaw);
         float sin = MathUtils.sin(radYaw);
         float cos = MathUtils.cos(radYaw);
-
         float worldMoveX = moveDir.x * cos + moveDir.y * sin;
         float worldMoveZ = -moveDir.x * sin + moveDir.y * cos;
-
         velocity.x = worldMoveX * GameConfig.PLAYER_SPEED;
         velocity.z = worldMoveZ * GameConfig.PLAYER_SPEED;
-
         position.x += velocity.x * delta;
         position.z += velocity.z * delta;
-
         if (moveDir.len2() > 0.01f) {
             float targetYaw = (float)Math.toDegrees(MathUtils.atan2(worldMoveX, worldMoveZ));
             yaw = lerpAngle(yaw, targetYaw, 5f * delta);
@@ -100,15 +95,11 @@ public class Player {
     public Vector3 getCameraPosition() {
         float radYaw = (float)Math.toRadians(yaw);
         float radPitch = (float)Math.toRadians(pitch);
-        
-        // 第三人称：相机在玩家后方（yaw + 180°）
         float camDist = GameConfig.CAMERA_DISTANCE;
         float camYaw = radYaw + MathUtils.PI;
-        
         float camX = position.x + MathUtils.sin(camYaw) * MathUtils.cos(radPitch) * camDist;
         float camZ = position.z + MathUtils.cos(camYaw) * MathUtils.cos(radPitch) * camDist;
         float camY = position.y + GameConfig.CAMERA_HEIGHT + MathUtils.sin(radPitch) * camDist * 0.5f;
-        
         return new Vector3(camX, camY, camZ);
     }
 
