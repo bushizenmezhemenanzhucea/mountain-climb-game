@@ -31,13 +31,9 @@ public class MountainClimbGame extends Game {
 
     private void createSkin() {
         skin = new Skin();
-
-        // 尝试加载 Android 系统字体（支持中文）
         font = loadChineseFont();
-
         skin.add("default", font);
 
-        // 添加默认 Drawable（白色1x1像素，用于着色）
         Pixmap defaultPixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         defaultPixmap.setColor(1f, 1f, 1f, 1f);
         defaultPixmap.fill();
@@ -85,36 +81,22 @@ public class MountainClimbGame extends Game {
     }
 
     private BitmapFont loadChineseFont() {
-        // 尝试加载 Android 系统自带中文字体
-        String[] fontPaths = {
-            "/system/fonts/NotoSansCJK-Regular.ttc",
-            "/system/fonts/NotoSansSC-Regular.otf",
-            "/system/fonts/DroidSansFallback.ttf",
-            "/system/fonts/NotoSansCJKsc-Regular.otf",
-            "/system/fonts/NotoSansCJKjp-Regular.otf"
-        };
-
-        for (String path : fontPaths) {
-            try {
-                com.badlogic.gdx.files.FileHandle fontFile = Gdx.files.absolute(path);
-                if (fontFile.exists()) {
-                    FreeTypeFontGenerator generator = new FreeTypeFontGenerator(fontFile);
-                    FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
-                    param.size = 32;
-                    param.color = Color.WHITE;
-                    param.characters = FreeTypeFontGenerator.DEFAULT_CHARS;
-                    BitmapFont f = generator.generateFont(param);
-                    generator.dispose();
-                    Gdx.app.log("Font", "Loaded system font: " + path);
-                    return f;
-                }
-            } catch (Exception e) {
-                Gdx.app.log("Font", "Failed to load " + path + ": " + e.getMessage());
+        try {
+            com.badlogic.gdx.files.FileHandle fontFile = Gdx.files.internal("fonts/NotoSansSC.otf");
+            if (fontFile.exists()) {
+                FreeTypeFontGenerator generator = new FreeTypeFontGenerator(fontFile);
+                FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
+                param.size = 32;
+                param.color = Color.WHITE;
+                param.characters = "开始游戏继续设置更新日志检查退出后山选择地图进入音效音量背景音乐视角灵敏度保存返回主菜单V初始版本D爬山热系统关闭成功登顶保存进度返回主菜单这是一款位于北郊的后山海拔不高但地形复杂几座凸起的山峰连绵起伏山顶有平坦的平台挑战者需要从山脚出发沿着斜坡攀登最终登顶主峰俯瞰整个山谷注意边界有空气墙保护请勿尝试越界1234567890.%";
+                BitmapFont f = generator.generateFont(param);
+                generator.dispose();
+                Gdx.app.log("Font", "Loaded Chinese font from assets");
+                return f;
             }
+        } catch (Exception e) {
+            Gdx.app.log("Font", "Failed: " + e.getMessage());
         }
-
-        // 回退到默认字体（中文显示方框，但不崩溃）
-        Gdx.app.log("Font", "No system Chinese font found, using default");
         BitmapFont defaultFont = new BitmapFont();
         defaultFont.getData().setScale(2f);
         return defaultFont;

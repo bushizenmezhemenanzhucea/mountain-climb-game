@@ -4,7 +4,6 @@ plugins {
 
 android {
     compileSdkVersion 33
-
     defaultConfig {
         applicationId "com.mountainclimb.game"
         minSdkVersion 21
@@ -12,23 +11,19 @@ android {
         versionCode 1
         versionName "1.0.0"
     }
-
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-
     sourceSets {
         main {
             jniLibs.srcDirs = ['src/main/jniLibs']
-            assets.srcDirs = ['assets']
         }
     }
 }
@@ -38,14 +33,4 @@ dependencies {
     implementation "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
     implementation "com.badlogicgames.gdx:gdx-bullet:$gdxVersion"
     implementation "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
-}
-
-android.applicationVariants.all { variant ->
-    variant.mergeAssets.dependsOn(':core:processResources')
-    variant.mergeAssets.doLast {
-        copy {
-            from project(':core').sourceSets.main.resources.srcDirs
-            into variant.mergeAssets.outputDir
-        }
-    }
 }

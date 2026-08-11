@@ -1,51 +1,45 @@
 name: Build Android APK
-
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: gradle
-
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
-
     - name: Install Android SDK Build Tools
       run: |
         sdkmanager "build-tools;33.0.0"
         sdkmanager "platforms;android-33"
-
     - name: Install Pillow and create assets
       run: |
         pip install Pillow
         python3 scripts/create-assets.py
-
-    - name: Download and extract LibGDX native libraries
+    - name: Verify assets exist
+      run: |
+        echo "=== Generated assets ==="
+        find android/src/main/assets -type f 2>/dev/null | sort
+        echo "=== Font file size ==="
+        ls -lh android/src/main/assets/fonts/ 2>/dev/null || echo "No font dir"
+    - name: Download native libraries
       run: |
         GDX_VER="1.12.1"
         JNI_DIR="android/src/main/jniLibs"
         mkdir -p $JNI_DIR/armeabi-v7a $JNI_DIR/arm64-v8a
-        
         for lib in gdx gdx-bullet gdx-freetype; do
           for arch in armeabi-v7a arm64-v8a; do
-            jar_path="com/badlogicgames/gdx/${lib}-platform/${GDX_VER}/${lib}-platform-${GDX_VER}-natives-${arch}.jar"
-            url="https://repo1.maven.org/maven2/${jar_path}"
-            echo "Downloading ${lib} ${arch}..."
-            curl -L -o /tmp/${lib}-${arch}.jar "$url" 2>/dev/null
+            curl -L -o /tmp/${lib}-${arch}.jar "https://repo1.maven.org/maven2/com/badlogicgames/gdx/${lib}-platform/${GDX_VER}/${lib}-platform-${GDX_VER}-natives-${arch}.jar" 2>/dev/null
             unzip -o /tmp/${lib}-${arch}.jar -d /tmp/${lib}-${arch}/ 2>/dev/null || true
             so_file=$(find /tmp/${lib}-${arch}/ -name "*.so" | head -1)
             if [ -n "$so_file" ]; then
@@ -56,29 +50,23 @@ jobs:
             fi
           done
         done
-        
-        echo "=== Native libraries ==="
+        echo "=== Native libs ==="
         find $JNI_DIR -type f | sort
-
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-
     - name: Build Debug APK
       run: ./gradlew android:assembleDebug --no-daemon
       env:
         ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-
     - name: Build Release APK
       run: ./gradlew android:assembleRelease --no-daemon
       env:
         ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
         name: debug-apk
         path: android/build/outputs/apk/debug/android-debug.apk
-
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
       with:

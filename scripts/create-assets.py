@@ -1,10 +1,13 @@
 from PIL import Image, ImageDraw
 import os
 import wave
+import urllib.request
 
-os.makedirs('android/assets/textures', exist_ok=True)
-os.makedirs('android/assets/sounds', exist_ok=True)
-os.makedirs('android/assets/music', exist_ok=True)
+ASSETS = 'android/src/main/assets'
+os.makedirs(f'{ASSETS}/textures', exist_ok=True)
+os.makedirs(f'{ASSETS}/sounds', exist_ok=True)
+os.makedirs(f'{ASSETS}/music', exist_ok=True)
+os.makedirs(f'{ASSETS}/fonts', exist_ok=True)
 
 # 菜单背景
 img = Image.new('RGB', (1920, 1080), (34, 139, 34))
@@ -14,7 +17,7 @@ for y in range(1080):
         if y > 600:
             g = 139 - int((y - 600) / 480 * 80)
             pixels[x, y] = (20, max(g, 60), 20)
-img.save('android/assets/textures/menu_bg.png')
+img.save(f'{ASSETS}/textures/menu_bg.png')
 print('Created menu_bg.png')
 
 # 地图缩略图
@@ -29,7 +32,7 @@ for y in range(512):
             if y < cy - h * 150:
                 g = int(200 + h * 55)
                 pixels[x, y] = (34, min(g, 255), 34)
-img.save('android/assets/textures/map_houshan.png')
+img.save(f'{ASSETS}/textures/map_houshan.png')
 print('Created map_houshan.png')
 
 # 图标
@@ -48,9 +51,9 @@ for name, size in sizes.items():
     snow_size = max(size // 15, 2)
     draw.ellipse([peak_x - snow_size, peak_y - snow_size, peak_x + snow_size, peak_y + snow_size], fill=(255, 255, 255, 200))
     img.save(f'android/src/main/res/mipmap-{name}/ic_launcher.png')
-    print(f'Created icon {name}: {size}x{size}')
+    print(f'Created icon {name}')
 
-# 生成有效 WAV 文件
+# 音频
 def create_wav(path, duration=0.5, sample_rate=22050):
     nframes = int(duration * sample_rate)
     with wave.open(path, 'w') as wav:
@@ -59,9 +62,21 @@ def create_wav(path, duration=0.5, sample_rate=22050):
         wav.setframerate(sample_rate)
         wav.writeframes(b'\x00' * (nframes * 2))
 
-create_wav('android/assets/sounds/button_click.wav', 0.1)
-create_wav('android/assets/sounds/climb.wav', 1.0)
-create_wav('android/assets/sounds/summit.wav', 0.5)
-create_wav('android/assets/music/bgm.wav', 3.0)
+create_wav(f'{ASSETS}/sounds/button_click.wav', 0.1)
+create_wav(f'{ASSETS}/sounds/climb.wav', 1.0)
+create_wav(f'{ASSETS}/sounds/summit.wav', 0.5)
+create_wav(f'{ASSETS}/music/bgm.wav', 3.0)
 print('Created audio files')
+
+# 下载中文字体（约8MB）
+print('Downloading Chinese font...')
+try:
+    urllib.request.urlretrieve(
+        'https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf',
+        f'{ASSETS}/fonts/NotoSansSC.otf'
+    )
+    print('Downloaded font')
+except Exception as e:
+    print(f'Font download failed: {e}')
+
 print('Done!')
