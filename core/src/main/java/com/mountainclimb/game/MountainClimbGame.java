@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -30,9 +31,17 @@ public class MountainClimbGame extends Game {
 
     private void createSkin() {
         skin = new Skin();
-        font = new BitmapFont();
-        font.getData().setScale(2f);
+
+        // 尝试加载 Android 系统字体（支持中文）
+        font = loadChineseFont();
+
         skin.add("default", font);
+
+        // 添加默认 Drawable（白色1x1像素，用于着色）
+        Pixmap defaultPixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        defaultPixmap.setColor(1f, 1f, 1f, 1f);
+        defaultPixmap.fill();
+        skin.add("default", new TextureRegionDrawable(new Texture(defaultPixmap)));
 
         Label.LabelStyle labelStyle = new Label.LabelStyle(font, Color.WHITE);
         skin.add("default", labelStyle);
@@ -73,6 +82,42 @@ public class MountainClimbGame extends Game {
 
         ScrollPane.ScrollPaneStyle scrollStyle = new ScrollPane.ScrollPaneStyle();
         skin.add("default", scrollStyle);
+    }
+
+    private BitmapFont loadChineseFont() {
+        // 尝试加载 Android 系统自带中文字体
+        String[] fontPaths = {
+            "/system/fonts/NotoSansCJK-Regular.ttc",
+            "/system/fonts/NotoSansSC-Regular.otf",
+            "/system/fonts/DroidSansFallback.ttf",
+            "/system/fonts/NotoSansCJKsc-Regular.otf",
+            "/system/fonts/NotoSansCJKjp-Regular.otf"
+        };
+
+        for (String path : fontPaths) {
+            try {
+                com.badlogic.gdx.files.FileHandle fontFile = Gdx.files.absolute(path);
+                if (fontFile.exists()) {
+                    FreeTypeFontGenerator generator = new FreeTypeFontGenerator(fontFile);
+                    FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
+                    param.size = 32;
+                    param.color = Color.WHITE;
+                    param.characters = FreeTypeFontGenerator.DEFAULT_CHARS;
+                    BitmapFont f = generator.generateFont(param);
+                    generator.dispose();
+                    Gdx.app.log("Font", "Loaded system font: " + path);
+                    return f;
+                }
+            } catch (Exception e) {
+                Gdx.app.log("Font", "Failed to load " + path + ": " + e.getMessage());
+            }
+        }
+
+        // 回退到默认字体（中文显示方框，但不崩溃）
+        Gdx.app.log("Font", "No system Chinese font found, using default");
+        BitmapFont defaultFont = new BitmapFont();
+        defaultFont.getData().setScale(2f);
+        return defaultFont;
     }
 
     public Skin getSkin() { return skin; }
